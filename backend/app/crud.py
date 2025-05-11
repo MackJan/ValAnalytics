@@ -1,8 +1,8 @@
 from typing import List
 
 from sqlmodel import Session, select
-from database import engine
-from models import User, Match, Round, Event
+from .database import engine
+from .models import User, Match, Round, Event
 import datetime
 
 def get_user_by_riot_id(riot_id: str) -> User:

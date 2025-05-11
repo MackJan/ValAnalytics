@@ -47,8 +47,5 @@ class Match:
             "players": clean_players
         }
 
-        return cleaned
 
-m = Match()
-#match = m.get_match_history()[0]["MatchID"]
-print(m.get_match_details("8b92975b-2d39-47dd-967a-8dbd1c079445"))
+        return cleaned
