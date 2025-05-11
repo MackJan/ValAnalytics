@@ -1,4 +1,5 @@
-from src import req
+from agent.src import req
+
 
 class User:
     def __init__(self):
@@ -8,7 +9,6 @@ class User:
 
     def get_user(self):
         session = self.requests.fetch("local","/chat/v1/session","get")
-        print(session)
 
         user = {
             "puuid": session["puuid"],
