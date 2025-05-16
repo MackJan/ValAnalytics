@@ -4,3 +4,4 @@ sqlmodel
 asyncpg
 aioredis
 python-jose
+alembic

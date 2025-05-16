@@ -37,7 +37,7 @@ class Match:
             stats = p.get("stats",{})
             slim["kills"] = stats.get("kills",0)
             slim["deaths"] = stats.get("deaths",0)
-            slim["assist"] = stats.get("assists",0)
+            slim["assists"] = stats.get("assists",0)
             slim["score"] = stats.get("score",0)
 
             clean_players.append(slim)

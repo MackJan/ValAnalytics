@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:13
@@ -11,7 +9,10 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - app_network
     healthcheck:
+      interval: 5s
       test: ["CMD", "pg_isready", "-U", "postgres"]
 
   backend:
@@ -21,7 +22,8 @@ services:
     volumes:
       - ../backend:/app
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       # Make sure DATABASE_URL matches the asyncpg URL format
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/valorant
@@ -29,8 +31,11 @@ services:
       - SECRET_KEY=supersecretchangeme
     ports:
       - "8000:8000"
+    networks:
+      - app_network
     command: >
-      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 
   frontend:
@@ -48,3 +53,6 @@ services:
 volumes:
   pgdata:
 
+networks:
+  app_network:
+    driver: bridge
