@@ -33,17 +33,12 @@ class MatchPlayerBase(BaseModel):
     assists: int
     score: int
     agent: str
-    team_color:Optional[str]
-    name: str
-    tag: str
 
 
 class MatchPlayerCreate(MatchPlayerBase):
     """
     Schema for creating the MatchPlayer association
     """
-    team_id: Optional[int]
-    team_color: str
 
 
 class MatchPlayerRead(MatchPlayerBase):
@@ -74,8 +69,8 @@ class TeamRead(TeamBase):
     Schema for reading Team
     """
     id: int
-    players: List[MatchPlayerRead]
-    match: "MatchRead"
+    players: Optional[List[MatchPlayerRead]]
+    match: Optional["MatchRead"]
 
     class Config:
         from_attributes = True
@@ -92,7 +87,6 @@ class MatchCreate(MatchBase):
     """
     Schema for creating a Match
     """
-    match_players: Optional[List[MatchPlayerBase]]
     pass
 
 

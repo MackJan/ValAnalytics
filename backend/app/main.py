@@ -1,8 +1,9 @@
 import json
 import asyncio
-from fastapi import Request, FastAPI, WebSocket, Depends, APIRouter, HTTPException, Query, status
+from fastapi import Response,Request, FastAPI, WebSocket, Depends, APIRouter, HTTPException, Query, status
 from typing import Annotated, Literal
 from contextlib import asynccontextmanager
+
 from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import BaseModel, Field
 import logging
@@ -59,67 +60,16 @@ async def create_user(user: UserCreate):
         await session.refresh(user_db)
         return user_db
 
-@router.post(
-    "/matches/bulk/",
-    response_model=List[MatchRead],
-    status_code=status.HTTP_201_CREATED,
-    summary="Create multiple matches in one request",
-)
-async def create_matches_bulk(matches: List[MatchCreate]):
-    created_matches: List[Match] = []
-
+@router.post("/users/get-or-create", response_model=UserRead)
+async def get_or_create(user: UserCreate):
     async with AsyncSession(engine) as session:
-        # Use a transaction: either all match creations succeed or fail
-        async with session.begin():
-            for m in matches:
-                # 1) Create the Match row
-                match_db = Match(
-                    match_uuid=m.match_uuid,
-                    map_name=m.map_name,
-                    queue=m.queue,
-                    started_at=m.started_at,
-                    ended_at=m.ended_at,
-                )
-                session.add(match_db)
-                # Flush so match_db.id is populated before we create its players
-                await session.flush()
-
-                # 2) Attach players if provided
-                if m.match_players:
-                    for p in m.match_players:
-                        # look up the User by riot_id
-                        result = await session.exec(
-                            select(User).where(User.riot_id == p.riot_id)
-                        )
-                        user_db = result.one_or_none()
-                        if not user_db:
-                            raise HTTPException(
-                                status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"User with riot_id '{p.riot_id}' not found",
-                            )
-
-                        mp = MatchPlayer(
-                            match_id=match_db.id,
-                            player_id=user_db.id,
-                            riot_id=p.riot_id,
-                            kills=p.kills,
-                            deaths=p.deaths,
-                            assists=p.assists,
-                            score=p.score,
-                            agent=p.agent,
-                            team_id=p.team_id,
-                        )
-                        session.add(mp)
-
-                # Collect for response
-                created_matches.append(match_db)
-
-        # at this point, the transaction has been committed
-        # refresh each so that any defaults (or relationships, if you choose) are populated
-        for match_db in created_matches:
-            await session.refresh(match_db)
-
-    return created_matches
+        user_db = await get_or_create_user(
+            session,
+            riot_id=user.riot_id,
+            name=user.name,
+            tag=user.tag
+        )
+        return user_db
 
 @router.post("/matches/", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 async def create_match(match: MatchCreate):
@@ -136,34 +86,58 @@ async def create_match(match: MatchCreate):
         await session.commit()
         await session.refresh(match_db)
 
-        # 2) Optional: attach players
-        if match.match_players:
-            for p in match.match_players:
-                # find the User by riot_id
-                result = await session.exec(select(User).where(User.riot_id == p.riot_id))
-                user_db = result.one_or_none()
-                if not user_db:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"User with riot_id '{p.riot_id}' not found"
-                    )
-                mp = MatchPlayer(
-                    match_id=match_db.id,
-                    player_id=user_db.id,
-                    riot_id=p.riot_id,
-                    kills=p.kills,
-                    deaths=p.deaths,
-                    assists=p.assists,
-                    score=p.score,
-                    agent=p.agent,
-                    team_id=p.team_id,
-                )
-                session.add(mp)
-            await session.commit()
-            # no need to refresh match_db itself here since MatchRead doesn’t include players
-
         return match_db
 
+
+@router.post("/matches/{match_id}/teams/", response_model=TeamRead, status_code=status.HTTP_201_CREATED)
+async def create_team(match_id: int, team:TeamCreate):
+    async with AsyncSession(engine) as session:
+        match = await session.get(Match,match_id)
+        if not match:
+            raise HTTPException(status_code=404,detail="Match not found")
+        team_db = MatchTeam(
+            match_id = match_id,
+            label = team.label
+        )
+        session.add(team_db)
+        await session.commit()
+        await session.refresh(team_db)
+        return team_db
+
+@router.post("/matches/{match_id}/teams/{team_id}/players/", response_model=MatchPlayerRead)
+async def create_player(match_id:int,team_id:int,player:MatchPlayer):
+    async with AsyncSession(engine) as session:
+        match = await session.get(Match, match_id)
+        if not match:
+            raise HTTPException(status_code=404, detail="Match not found")
+        team = await session.get(MatchTeam, team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        player = MatchPlayer(
+            riot_id = player.riot_id,
+            kills = player.kills,
+            deaths = player.deaths,
+            assists = player.assists,
+            score = player.score,
+            agent = player.agent,
+            team_id = team.id
+        )
+
+        session.add(player)
+        await session.commit()
+        await session.refresh(player)
+        return player
+
+@router.get("/matches/{match_id}/",response_model=MatchRead)
+async def get_match(
+        match_id:int
+):
+    async with AsyncSession(engine) as session:
+        match = session.get(Match,match_id)
+        if not match:
+            raise HTTPException(status_code=404,detail="Match not found")
+        return match
 
 @router.get("/matches/", response_model=List[MatchRead])
 async def get_matches(
@@ -174,31 +148,40 @@ async def get_matches(
         order_col = getattr(Match, order_by)
         statement = select(Match).order_by(order_col).limit(limit)
         result = await session.exec(statement)
-        return result.all()
-
-
-@router.get("/matches/{match_id}", response_model=MatchRead)
-async def get_match(match_id: int):
-    async with AsyncSession(engine) as session:
-        statement = select(Match).where(Match.id == match_id)
-        result = await session.exec(statement)
-        match_db = result.one_or_none()
-        if not match_db:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Match not found"
-            )
-        return match_db
-
+        return result.scalars().all()
 
 @router.get("/users/", response_model=list[UserRead])
 async def get_users():
     async with AsyncSession(engine) as session:
         statement = select(User)
         result = await session.exec(statement)
-        users = result.all()
+        users = result.scalars().all()
 
         return users
+
+@router.delete(
+    "/matches/{match_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a match by its ID"
+)
+async def delete_match(match_id: int):
+    async with AsyncSession(engine) as session:
+        # 1) Look up the match
+        statement = select(Match).where(Match.id == match_id)
+        result = await session.exec(statement)
+        match_db = result.scalar_one_or_none()
+        if not match_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Match with id={match_id} not found"
+            )
+
+        # 2) Delete and commit
+        await session.delete(match_db)
+        await session.commit()
+
+        # 3) Return 204 No Content
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # WS: ingest events

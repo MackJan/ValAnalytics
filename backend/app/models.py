@@ -20,7 +20,10 @@ class Match(SQLModel, table=True):
     started_at: datetime
     ended_at: datetime
 
-    teams: List["MatchTeam"] = Relationship(back_populates="match")
+    teams: List["MatchTeam"] = Relationship(
+        back_populates="match",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 class MatchTeam(SQLModel, table=True):
     """
@@ -30,15 +33,18 @@ class MatchTeam(SQLModel, table=True):
     match_id: int = Field(foreign_key="match.id", index=True)
     label: str = Field(index=True, description="e.g. 'team1' or 'team2'")
 
-    players: List["MatchPlayer"] = Relationship(back_populates="team")
-    match: Match = Relationship(back_populates="teams")
+    players: List["MatchPlayer"] = Relationship(
+        back_populates="team",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan","lazy": "selectin"}
+    )
+    match: Match = Relationship(back_populates="teams",sa_relationship_kwargs={"lazy": "selectin"})
 
 class MatchPlayer(SQLModel, table=True):
     """
     Association table for users in matches, including per-match stats and team assignment.
     """
     match_id: int = Field(foreign_key="match.id", primary_key=True)
-    player_id: int = Field(foreign_key="user.id", primary_key=True)
+    player_id: int = Field(foreign_key="user.id", primary_key=True, default=None)
     team_id: Optional[int] = Field(
         default=None,
         foreign_key="matchteam.id",
