@@ -12,7 +12,7 @@ from .schemas import UserRead, UserCreate, MatchPlayerRead, MatchPlayerCreate, M
     TeamRead
 from sqlmodel import Session, select, SQLModel
 from .models import User, Match, MatchPlayer, MatchTeam
-from .crud import *
+from .helper import *
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -70,6 +70,14 @@ async def get_or_create(user: UserCreate):
             tag=user.tag
         )
         return user_db
+
+@router.post("/matches/", response_model=MatchRead)
+async def get_or_create(match: MatchCreate):
+    async with AsyncSession(engine) as session:
+        match_db = await get_or_create_match(
+            session, match
+        )
+        return match_db
 
 @router.post("/matches/", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 async def create_match(match: MatchCreate):

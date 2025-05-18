@@ -1,16 +1,12 @@
-FROM node:18-alpine
-
+FROM node:18-bullseye-slim
 WORKDIR /app
 
-# Install dependencies
+# Copy lockfile, install dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install \
+  && npm install @rollup/rollup-linux-x64-gnu --save-optional
 
-# Copy source
-COPY . ./
-
-# Expose Vite dev server port
+# Copy the rest of your app
+COPY . .
 EXPOSE 5173
-
-# Launch Vite in host mode for container
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
