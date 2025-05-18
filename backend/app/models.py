@@ -1,16 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-
-from sqlalchemy import table
 from sqlmodel import SQLModel, Field, Relationship, create_engine
-
-class UserBase(SQLModel):
-    username: Optional[str]
-    riot_id: Optional[str]
-    name: Optional[str]
-    tag: Optional[str]
-    created_at: Optional[datetime]
-    disabled: Optional[bool]
 
 class User(SQLModel, table=True):
     """
@@ -32,9 +22,6 @@ class User(SQLModel, table=True):
 
     # relationship back to matches
     match_players: List["MatchPlayer"] = Relationship(back_populates="user")
-
-class UserInDB(UserBase):
-    hashed_password: str
 
 class Match(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

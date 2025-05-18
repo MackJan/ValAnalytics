@@ -28,7 +28,7 @@ async def get_or_create_user(session: AsyncSession, riot_id: str, name: str, tag
     return user_db
 
 async def get_or_create_match(session: AsyncSession, match: MatchCreate):
-    result = await session.exec(select(Match).where(Match.match_uuid == match["match_uuid"]))
+    result = await session.exec(select(Match).where(Match.match_uuid == match.match_uuid))
     match_db = result.scalars().one_or_none()
     if match_db:
         return match_db

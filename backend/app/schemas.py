@@ -34,7 +34,7 @@ class UserRead(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserDB(UserRead):
     """
@@ -42,6 +42,9 @@ class UserDB(UserRead):
     used by your auth logic, never exposed in APIs.
     """
     hashed_password: str
+
+    class Config:
+        from_attributes = True
 
 class MatchPlayerBase(BaseModel):
     riot_id: str

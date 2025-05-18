@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field
 import logging
 from .database import init_db, engine
 from .schemas import UserRead, UserCreate, MatchPlayerRead, MatchPlayerCreate, MatchCreate, MatchRead, TeamCreate, \
-    TeamRead, TokenData, Token
+    TeamRead, TokenData, Token, UserDB
 from sqlmodel import Session, select, SQLModel
-from .models import User, Match, MatchPlayer, MatchTeam, UserInDB
+from .models import User, Match, MatchPlayer, MatchTeam
 from .helper import *
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -54,23 +54,22 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def get_user(username: str):
-    with AsyncSession(engine) as session:
-        user = session.exec((select(User).where(User.username==username)).scalar_one_or_none())
-        if user:
-            user_dict = session.exec((select(User)).scalars.all())
-            return UserInDB(**user_dict)
-        return None
+async def get_user(session, username: str):
+    result = await session.exec((select(User).where(User.username==username)))
+    user = result.scalar_one_or_none()
+    if user:
+        return UserDB.model_validate(user)
+    return None
 
 
-def authenticate_user(username: str, password: str):
-    with AsyncSession(engine) as session:
-        user = session.exec((select(User).where(User.username==username)).scalar_one_or_none())
-        if not user:
-            return False
-        if not verify_password(password, user.hashed_password):
-            return False
-        return user
+async def authenticate_user(session, username: str, password: str):
+    result = await session.exec((select(User).where(User.username==username)))
+    user = result.scalar_one_or_none()
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta]):
@@ -85,23 +84,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta]):
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
+    async with AsyncSession(engine) as session:
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username = payload.get("sub")
+            if username is None:
+                raise credentials_exception
+            token_data = TokenData(username=username)
+        except InvalidTokenError:
             raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
-        raise credentials_exception
-    user = get_user(username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
+        user = await get_user(session,username=token_data.username)
+        if user is None:
+            raise credentials_exception
+        return user
 
 
 async def get_current_active_user(
@@ -116,18 +116,19 @@ async def get_current_active_user(
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    async with AsyncSession(engine) as session:
+        user = await authenticate_user(session,form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type="bearer")
+        return Token(access_token=access_token, token_type="bearer")
 
 
 @app.get("/users/me/", response_model=User)
@@ -135,13 +136,6 @@ async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     return current_user
-
-
-@app.get("/users/me/items/")
-async def read_own_items(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
-    return [{"item_id": "Foo", "owner": current_user.username}]
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -154,8 +148,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @router.post("/users/", response_model=UserRead)
 async def create_user(user: UserCreate):
     async with AsyncSession(engine) as session:
+        hashed = get_password_hash(user.password)
         # Create a new user instance
         user_db = User(
+            username=user.username,
+            hashed_password=hashed,
             riot_id=user.riot_id,
             name=user.name,
             tag=user.tag
@@ -176,14 +173,6 @@ async def get_or_create(user: UserCreate):
             tag=user.tag
         )
         return user_db
-
-@router.post("/matches/", response_model=MatchRead)
-async def get_or_create(match: MatchCreate):
-    async with AsyncSession(engine) as session:
-        match_db = await get_or_create_match(
-            session, match
-        )
-        return match_db
 
 @router.post("/matches/", response_model=MatchRead, status_code=status.HTTP_201_CREATED)
 async def create_match(match: MatchCreate):
@@ -219,7 +208,7 @@ async def create_team(match_id: int, team:TeamCreate):
         return team_db
 
 @router.post("/matches/{match_id}/teams/{team_id}/players/", response_model=MatchPlayerRead)
-async def create_player(match_id:int,team_id:int,player:MatchPlayer):
+async def create_player(match_id:int,team_id:int,player:MatchPlayerCreate):
     async with AsyncSession(engine) as session:
         match = await session.get(Match, match_id)
         if not match:
