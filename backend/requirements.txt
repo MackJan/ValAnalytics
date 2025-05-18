@@ -1,7 +1,12 @@
 fastapi
-uvicorn[standard]
+pydantic
+SQLAlchemy
 sqlmodel
+uvicorn[standard]
 asyncpg
 aioredis
 python-jose
 alembic
+python-multipart
+pyjwt
+passlib[bcrypt]

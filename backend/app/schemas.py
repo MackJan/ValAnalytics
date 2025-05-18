@@ -2,29 +2,46 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
-class UserBase(BaseModel):
-    riot_id: str
-    name: str
-    tag: str
+class TokenData(BaseModel):
+    username: Optional[str]
 
-
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     """
-    Schema for creating a new User
+    Data the client must supply when _registering_ a new user.
     """
-    pass
+    username: str
+    password: str
 
+    # if you still want to capture their Riot ID & display name:
+    riot_id: Optional[str]
+    name: Optional[str]
+    tag: Optional[str]
 
-class UserRead(UserBase):
+class UserRead(BaseModel):
     """
-    Schema for reading User data
+    Data returned to the client when fetching user info.
     """
     id: int
+    username: str
+    riot_id: Optional[str]
+    name: Optional[str]
+    tag: Optional[str]
+    disabled: bool
     created_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
+
+class UserDB(UserRead):
+    """
+    Internal schema including the hashed password;
+    used by your auth logic, never exposed in APIs.
+    """
+    hashed_password: str
 
 class MatchPlayerBase(BaseModel):
     riot_id: str

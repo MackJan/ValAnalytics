@@ -1,16 +1,40 @@
 from typing import Optional, List
 from datetime import datetime
+
+from sqlalchemy import table
 from sqlmodel import SQLModel, Field, Relationship, create_engine
 
+class UserBase(SQLModel):
+    username: Optional[str]
+    riot_id: Optional[str]
+    name: Optional[str]
+    tag: Optional[str]
+    created_at: Optional[datetime]
+    disabled: Optional[bool]
+
 class User(SQLModel, table=True):
+    """
+    Stores one ValorantAnalytics user, including credentials
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
-    riot_id: str = Field(index=True, unique=True)
+    # existing Riot account link
+    riot_id: Optional[str] = Field(index=True, unique=True)
 
-    name: str
-    tag: str
-    created_at: datetime = Field(default_factory=datetime.now)
+    # new fields for authentication:
+    username: str = Field(index=True, unique=True)
+    hashed_password: str
+    disabled: bool = Field(default=False)
 
+    # your existing profile info
+    name: Optional[str]
+    tag: Optional[str]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # relationship back to matches
     match_players: List["MatchPlayer"] = Relationship(back_populates="user")
+
+class UserInDB(UserBase):
+    hashed_password: str
 
 class Match(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
