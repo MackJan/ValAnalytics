@@ -12,6 +12,11 @@ class TokenData(BaseModel):
 class RiotUserGet(BaseModel):
     riot_id: str
 
+class MatchGet(BaseModel):
+    match_uuid: str
+    game_start_time: int
+    queue: str
+
 class RiotUser(BaseModel):
     """
     Data returned from the Riot API when a user is authenticated.

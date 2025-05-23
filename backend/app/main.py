@@ -24,7 +24,7 @@ from .schemas import (
     MatchPlayerCreate, MatchPlayerRead,
     TeamCreate, TeamRead,
     UserRiotAuthentication, Token, TokenData,
-    RiotUser, RiotUserGet
+    RiotUser, RiotUserGet, MatchGet
 )
 from .helper import get_or_create_user, get_riot_authentication, get_match_history
 
@@ -165,6 +165,32 @@ async def get_riot_user(user: RiotUserGet):
             riot_id=res["riot_id"],
         )
         return user
+
+@router.get("/match_hitory/", response_model= List[MatchGet])
+async def get_match_history_api(
+        riot_id: str,
+        auth_id: str,
+):
+    async with AsyncSession(engine) as session:
+        res = await get_riot_authentication(session, auth_id)
+        if not res:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riot authentication not found for the given riot_id"
+            )
+
+        matches = await get_match_history(session, riot_id, res)
+        match_data = []
+        print(f"#### {matches}")
+        for m in matches["History"]:
+            match = MatchGet(
+                match_uuid=m["MatchID"],
+                game_start_time=m["GameStartTime"],
+                queue=m["QueueID"],
+            )
+            match_data.append(match)
+
+        return match_data
 
 @router.post("/users/riot_auth/", response_model=UserRiotAuthentication)
 async def riot_auth(auth: UserRiotAuthentication):
