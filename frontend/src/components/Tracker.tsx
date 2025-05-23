@@ -1,10 +1,10 @@
-import RiotLoginButton from "./riotLoginButton.tsx";
+import Login from "./user/Login";
 
 function Tracker() {
     return (
         <div className="Tracker">
             <h1>Tracker</h1>
-            <RiotLoginButton />
+            <Login />
         </div>
     )
 }

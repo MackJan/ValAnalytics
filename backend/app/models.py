@@ -3,13 +3,24 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, create_engine
 
 class User(SQLModel, table=True):
+    """
+    Stores one ValorantAnalytics user, including credentials
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
-    riot_id: str = Field(index=True, unique=True)
+    # existing Riot account link
+    riot_id: Optional[str] = Field(index=True, unique=True)
 
-    name: str
-    tag: str
+    # new fields for authentication:
+    username: str = Field(index=True, unique=True)
+    hashed_password: str
+    disabled: bool = Field(default=False)
+
+    # your existing profile info
+    name: str = Field(default=None)
+    tag: str = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.now)
 
+    # relationship back to matches
     match_players: List["MatchPlayer"] = Relationship(back_populates="user")
 
 class Match(SQLModel, table=True):
@@ -55,11 +66,11 @@ class MatchPlayer(SQLModel, table=True):
     riot_id: str
 
     # per-match stats
-    kills: Optional[int] = None
-    deaths: Optional[int] = None
-    assists: Optional[int] = None
-    score: Optional[int] = None
-    agent: Optional[str] = None
+    kills: int = Field(default=None)
+    deaths: int = Field(default=None)
+    assists: int = Field(default=None)
+    score: int = Field(default=None)
+    agent: int = Field(default=None)
 
     user: Optional[User] = Relationship(back_populates="match_players")
     team: Optional[MatchTeam] = Relationship(back_populates="players")
