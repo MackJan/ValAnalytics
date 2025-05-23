@@ -10,3 +10,5 @@ alembic
 python-multipart
 pyjwt
 passlib[bcrypt]
+bcrypt
+passlib

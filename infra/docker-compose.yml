@@ -43,21 +43,17 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     volumes:
-      # 1) Mount your code
       - ../frontend:/app:cached
-      # 2) Mount a fresh volume over /app/node_modules
-      #    so whatever npm ci put there in the image stays intact
       - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://host.docker.internal:8000   # see note below
       - CHOKIDAR_USEPOLLING=true
     ports:
       - "5173:5173"
     networks:
       - app_network
-    command: npm run dev
+    command: sh -c "npm install && npm run dev"
 
 volumes:
   pgdata:

@@ -3,8 +3,7 @@ WORKDIR /app
 
 # Copy lockfile, install dependencies
 COPY package.json package-lock.json ./
-RUN npm install \
-  && npm install @rollup/rollup-linux-x64-gnu --save-optional
+RUN npm install
 
 # Copy the rest of your app
 COPY . .

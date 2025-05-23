@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 import logging
 from .database import init_db, engine
 from .schemas import UserRead, UserCreate, MatchPlayerRead, MatchPlayerCreate, MatchCreate, MatchRead, TeamCreate, \
-    TeamRead, TokenData, Token, UserDB
+    TeamRead, TokenData, Token, UserDB, UserRegister, UserProfileUpdate
 from sqlmodel import Session, select, SQLModel
 from .models import User, Match, MatchPlayer, MatchTeam
 from .helper import *
@@ -18,11 +18,14 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+from fastapi.middleware.cors import CORSMiddleware
+import time
 
-#SECRET_KEY = "4d65a1eb33ddc202c4901f066cf0c12cad8f53ec368d053da5bea0e7fa53977c"
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+from fastapi.middleware.cors import CORSMiddleware
+
+SECRET_KEY = "4d65a1eb33ddc202c4901f066cf0c12cad8f53ec368d053da5bea0e7fa53977c"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 180
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,7 +38,27 @@ async def lifespan(app: FastAPI):
 router = APIRouter(prefix="/api")
 
 app = FastAPI(title="Valorant Performance Tracker", lifespan=lifespan)
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:5173",
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
 
 class FilterParams(BaseModel):
     limit: int = Field(100, gt=0, le=100)
@@ -112,7 +135,7 @@ async def get_current_active_user(
     return current_user
 
 
-@app.post("/token")
+@router.post("/token/")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
@@ -131,7 +154,7 @@ async def login_for_access_token(
         return Token(access_token=access_token, token_type="bearer")
 
 
-@app.get("/users/me/", response_model=User)
+@router.get("/users/me/", response_model=User)
 async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
@@ -162,6 +185,46 @@ async def create_user(user: UserCreate):
         await session.commit()
         await session.refresh(user_db)
         return user_db
+
+@router.patch("/users/me/", response_model=UserRead)
+async def update_pofile(profile: UserProfileUpdate, current_user=Depends(get_current_active_user)):
+    async with AsyncSession(engine) as session:
+        user = await session.get(User, current_user.id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if profile.riot_id:
+            q = select(User).where(User.riot_id == profile.riot_id)
+            existing = (await session.exec(q)).scalar_one_or_none()
+            if existing and existing.id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="That Riot ID is already linked to another account"
+                )
+            user.riot_id = profile.riot_id
+        if profile.name:
+            user.name = profile.name
+        if profile.tag:
+            user.tag = profile.tag
+
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+@router.post("/users/register", response_model=UserRead)
+async def register(user: UserRegister):
+    hashed = get_password_hash(user.password)
+    user_db = User(
+        username=user.username,
+        hashed_password=hashed,
+        # riot_id, name, tag all default to None
+    )
+    async with AsyncSession(engine) as session:
+        session.add(user_db)
+        await session.commit()
+        await session.refresh(user_db)
+    return user_db
+
 
 @router.post("/users/get-or-create", response_model=UserRead)
 async def get_or_create(user: UserCreate):

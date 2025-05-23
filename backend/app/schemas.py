@@ -9,6 +9,18 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str]
 
+class UserProfileUpdate(BaseModel):
+    riot_id: Optional[str] = None
+    name: Optional[str]   = None
+    tag: Optional[str]    = None
+
+class UserRegister(BaseModel):
+    """
+    Data the client must supply when _registering_ a new user.
+    """
+    username: str
+    password: str
+
 class UserCreate(BaseModel):
     """
     Data the client must supply when _registering_ a new user.
