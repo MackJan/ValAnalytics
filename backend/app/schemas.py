@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Literal
+from pydantic import BaseModel, HttpUrl, Field
 
 class Token(BaseModel):
     access_token: str
@@ -8,6 +8,26 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str]
+
+class RiotToken(BaseModel):
+    authorization: str
+
+class RiotLoginRequest(BaseModel):
+    username: str
+    password: str
+    hcaptcha_token: str
+
+class RiotIdentity(BaseModel):
+    captcha: str
+    username: str
+    password: str
+
+class RiotAuthRequest(BaseModel):
+    type: Literal["auth"]
+    language: Literal["en_US"]
+    remember: bool
+    riot_identity: RiotIdentity
+
 
 class UserProfileUpdate(BaseModel):
     riot_id: Optional[str] = None
