@@ -2,6 +2,20 @@ from datetime import datetime
 from typing import List, Optional, Literal
 from pydantic import BaseModel, HttpUrl, Field
 
+
+class UserRiotAuthentication(BaseModel):
+    """
+    Stores user authentication information, including hashed password and disabled status.
+    """
+    riot_id: Optional[str] = Field(index=True, unique=True)
+    authorization: str
+    entitlement: str
+    client_platform: str
+    client_version: str
+    user_agent: str
+
+    disabled: bool = Field(default=False)
+
 class Token(BaseModel):
     access_token: str
     token_type: str

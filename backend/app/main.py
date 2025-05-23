@@ -57,6 +57,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def get_riot_cookies():
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://auth.riotgames.com/authorize")
+        cookies = response.cookies
+        return cookies
+
 
 # Middleware
 @app.middleware("http")
@@ -148,11 +154,8 @@ router = APIRouter(prefix="/api")
 
 # Auth Endpoints
 
-async def get_riot_cookies():
-    async with httpx.AsyncClient() as client:
-        response = await client.get("https://auth.riotgames.com/authorize")
-        cookies = response.cookies
-        return cookies
+
+
 
 
 @router.post("/riot_login/")
