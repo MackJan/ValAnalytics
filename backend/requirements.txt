@@ -13,3 +13,4 @@ passlib[bcrypt]
 bcrypt
 passlib
 httpx
+requests

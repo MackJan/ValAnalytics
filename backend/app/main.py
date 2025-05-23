@@ -17,17 +17,16 @@ from jwt.exceptions import InvalidTokenError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .database import init_db, engine
-from .models import User, Match, MatchPlayer, MatchTeam
+from .models import User, Match, MatchPlayer, MatchTeam, UserAuthentication
 from .schemas import (
     UserRead, UserCreate, UserDB, UserRegister, UserProfileUpdate,
     MatchCreate, MatchRead,
     MatchPlayerCreate, MatchPlayerRead,
     TeamCreate, TeamRead,
-    Token, TokenData, RiotToken,
-    RiotLoginRequest, RiotAuthRequest,
-    RiotIdentity,
+    UserRiotAuthentication, Token, TokenData,
+    RiotUser, RiotUserGet
 )
-from .helper import get_or_create_user, riot_login_flow
+from .helper import get_or_create_user, get_riot_authentication, get_match_history
 
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
@@ -147,65 +146,56 @@ router = APIRouter(prefix="/api")
 
 
 # Auth Endpoints
+@router.post("/users/riot_user/", response_model=RiotUserGet)
+async def get_riot_user(user: RiotUserGet):
+    async with AsyncSession(engine) as session:
+        res = await get_riot_authentication(session, user.riot_id)
+        if not res:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riot authentication not found for the given riot_id"
+            )
 
-async def get_riot_cookies():
-    async with httpx.AsyncClient() as client:
-        response = await client.get("https://auth.riotgames.com/authorize")
-        cookies = response.cookies
-        return cookies
 
 
-@router.post("/riot_login/")
-async def riot_login(
-        username: str = Form(...),
-        password: str = Form(...),
-        hcaptcha_token: str = Form(...),
-):
-    cookies = await get_riot_cookies()
-
-    async with httpx.AsyncClient(cookies=cookies) as client:
-        response = await client.post(
-            "https://auth.riotgames.com/authorize",
-            data={
-                "type": "auth",
-                "language": "de",
-                "remember": True,
-                "riot_identity": {
-                    "username": username,
-                    "password": password,
-                    "captcha": hcaptcha_token,
-                },
-            },
+        matches = await get_match_history(session, user.riot_id, res)
+        print(matches)
+        res = res.model_dump()
+        user = RiotUserGet(
+            riot_id=res["riot_id"],
         )
-        print(response.headers)
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Login failed")
+        return user
 
-    # Process the username and password (e.g., authenticate user)
-    return {"message": "Login successful"}
+@router.post("/users/riot_auth/", response_model=UserRiotAuthentication)
+async def riot_auth(auth: UserRiotAuthentication):
+    async with AsyncSession(engine) as session:
+        auth_db = await session.exec(select(UserAuthentication).where(UserAuthentication.riot_id == auth.riot_id))
+        auth_db = auth_db.one_or_none()
+        if auth_db:
+            setattr(auth_db, "authorization", auth.authorization)
+            setattr(auth_db, "entitlement", auth.entitlement)
+            setattr(auth_db, "client_platform", auth.client_platform)
+            setattr(auth_db, "client_version", auth.client_version)
+            setattr(auth_db, "user_agent", auth.user_agent)
+            session.add(auth_db)
+            await session.commit()
+            await session.refresh(auth_db)
+            return auth_db
 
-@router.post("/auth/riot/")
-async def riot_auth(username: str = Form(...),
-        password: str = Form(...),
-        hcaptcha_token: str = Form(...),):
-    """
-    Perform Riot Games two-step login:
-      1) GET to grab cookies
-      2) PUT with { type, language, remember, riot_identity: { captcha, username, password } }
-    Returns the full JSON response from Riot (e.g. tokens, session state).
-    """
-    request = RiotAuthRequest (
-        type="auth",
-        language="en_US",
-        remember=True,
-        riot_identity=RiotIdentity(
-            captcha=hcaptcha_token,
-            username=username,
-            password=password
+        user_auth = UserAuthentication(
+            riot_id=auth.riot_id,
+            authorization=auth.authorization,
+            entitlement=auth.entitlement,
+            client_platform=auth.client_platform,
+            client_version=auth.client_version,
+            user_agent=auth.user_agent
         )
-    )
-    result = await riot_login_flow(request)
-    return {"data": result}
+        session.add(user_auth)
+        await session.commit()
+        await session.refresh(user_auth)
+
+        return user_auth
+
 
 @router.post("/token/", response_model=Token)
 async def login_for_access_token(
@@ -269,7 +259,7 @@ async def get_or_create_endpoint(user: UserCreate):
 async def list_users():
     async with AsyncSession(engine) as session:
         result = await session.exec(select(User))
-    return result.scalars().all()
+    return result.all()
 
 
 @router.get("/users/me/", response_model=UserRead)

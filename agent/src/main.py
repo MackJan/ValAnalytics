@@ -10,7 +10,7 @@ req = Requests()
 
 base_url = "http://localhost:8000/api"
 
-def main():
+def post_user_and_match():
 
     user = User()
     user_data= {
@@ -104,5 +104,22 @@ def main():
     #print(matches_data)
     #print(response)
     #print(response.json())
+
+def post_auth():
+    headers = req.get_headers()
+    puuid = req.puuid
+
+    data = {
+        "riot_id": puuid,
+        "authorization": headers["Authorization"],
+        "entitlement": headers["X-Riot-Entitlements-JWT"],
+        "client_platform": headers["X-Riot-ClientPlatform"],
+        "client_version": headers["X-Riot-ClientVersion"],
+        "user_agent": headers["User-Agent"],
+    }
+
+    response = requests.post(f"{base_url}/users/riot_auth/", json=data)
+    print(response.text)
+
 if __name__ == "__main__":
-    main()
+    post_auth()

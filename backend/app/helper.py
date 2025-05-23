@@ -1,51 +1,34 @@
 from sqlmodel import Session, select
-from .models import User, Match
+from .models import User, Match, UserAuthentication
 from sqlalchemy import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .schemas import MatchCreate, RiotAuthRequest
-import httpx
-from fastapi import HTTPException, status
+from .schemas import MatchCreate, UserRiotAuthentication,RiotUser
+import requests
 
-RIOT_AUTH_URL = "https://auth.riotgames.com/api/v1/authorization"
+async def get_riot_authentication(session: AsyncSession, riot_id: str) -> UserRiotAuthentication:
+    """
+    Get the Riot authentication information for a user.
+    """
+    result = await session.exec(select(UserAuthentication).where(UserAuthentication.riot_id == riot_id))
+    return result.scalars().one_or_none()
 
+async def get_match_history(session: AsyncSession, riot_id: str, auth: UserRiotAuthentication) -> RiotUser:
+    """
+    Get the Riot user information for a user.
+    """
+    auth_data = auth.model_dump()
 
-async def riot_login_flow(body: RiotAuthRequest) -> dict:
-    async with httpx.AsyncClient(follow_redirects=False) as client:
-        # 1) POST to /authorization with the "cookie prep" body
-        cookies_payload = {
-            "client_id": "play-valorant-web-prod",
-            "nonce": "1",
-            "redirect_uri": "https://playvalorant.com/opt_in",
-            "response_type": "token id_token",
-            "scope": "account openid",
-        }
-        init = await client.post(
-            RIOT_AUTH_URL,
-            json=cookies_payload,
-            headers={"Content-Type": "application/json"}
-        )
-        if init.status_code not in (200, 204):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Riot cookie setup failed: HTTP {init.status_code}"
-            )
+    headers = {
+        'Authorization': auth_data['authorization'],
+        'X-Riot-Entitlements-JWT': auth_data['entitlement'],
+        'X-Riot-ClientPlatform': auth_data['client_platform'],
+        'X-Riot-ClientVersion': auth_data['client_version'],
+        "User-Agent": auth_data['user_agent'],
+    }
+    response = requests.get(f"https://pd.eu.a.pvp.net/match-history/v1/history/{riot_id}", headers=headers)
 
-        # 2) PUT with the actual credentials + captcha, using the cookies you just got
-        resp = await client.put(
-            RIOT_AUTH_URL,
-            json=body.model_dump(),
-            cookies=init.cookies,
-            headers={"Content-Type": "application/json"}
-        )
-        if resp.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"msg": "Riot auth failed", "error": resp.json()}
-            )
-
-        return resp.json()
-
+    return response.json()
 
 async def get_or_create_user(session: AsyncSession, riot_id: str, name: str, tag: str) -> User:
     # 1) Try to find an existing user

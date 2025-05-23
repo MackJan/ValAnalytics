@@ -9,25 +9,32 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str]
 
-class RiotToken(BaseModel):
+class RiotUserGet(BaseModel):
+    riot_id: str
+
+class RiotUser(BaseModel):
+    """
+    Data returned from the Riot API when a user is authenticated.
+    """
+    puuid: str
+    pid: str
+    name: str
+    tag: str
+    region: str
+    game_name: str
+
+class UserRiotAuthentication(BaseModel):
+    """
+    Stores user authentication information, including hashed password and disabled status.
+    """
+    riot_id: str
     authorization: str
+    entitlement: str
+    client_platform: str
+    client_version: str
+    user_agent: str
 
-class RiotLoginRequest(BaseModel):
-    username: str
-    password: str
-    hcaptcha_token: str
-
-class RiotIdentity(BaseModel):
-    captcha: str
-    username: str
-    password: str
-
-class RiotAuthRequest(BaseModel):
-    type: Literal["auth"]
-    language: Literal["en_US"]
-    remember: bool
-    riot_identity: RiotIdentity
-
+    disabled: bool = Field(default=False)
 
 class UserProfileUpdate(BaseModel):
     riot_id: Optional[str] = None

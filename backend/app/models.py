@@ -2,6 +2,20 @@ from typing import Optional, List
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, create_engine
 
+class UserAuthentication(SQLModel, table=True):
+    """
+    Stores user authentication information, including hashed password and disabled status.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    riot_id: Optional[str] = Field(index=True, unique=True)
+    authorization: str = Field()
+    entitlement: str
+    client_platform: str
+    client_version: str
+    user_agent: str
+
+    disabled: bool = Field(default=False)
+
 class User(SQLModel, table=True):
     """
     Stores one ValorantAnalytics user, including credentials
@@ -70,7 +84,7 @@ class MatchPlayer(SQLModel, table=True):
     deaths: int = Field(default=None)
     assists: int = Field(default=None)
     score: int = Field(default=None)
-    agent: int = Field(default=None)
+    agent: str = Field(default=None)
 
     user: Optional[User] = Relationship(back_populates="match_players")
     team: Optional[MatchTeam] = Relationship(back_populates="players")
