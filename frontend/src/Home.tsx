@@ -2,8 +2,8 @@ import api from "./api";
 
 const Home = () => {
   return (
-    <div>
-       <button
+    <div className="bg-[#201E1D] h-screen flex flex-col items-center justify-center">
+       <button className="bg-zinc-700 hover:bg-zinc-900 text-white font-bold py-2 px-4 rounded"
         onClick={async () => {
           try {
             await api.get("/users/").then((response) => {
