@@ -3,8 +3,33 @@ from .models import User, Match, UserAuthentication
 from sqlalchemy import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .schemas import MatchCreate, UserRiotAuthentication,RiotUser
+from .schemas import MatchCreate, UserRiotAuthentication, RiotUser
 import requests
+import websocket
+import json
+import threading
+import time
+
+riot_api = "RGAPI-9db13490-153b-4787-ba20-b4285ce3fde3"
+
+def on_message(ws, message):
+    print(f"Received: {message}")
+
+def on_error(ws, error):
+    print(f"Error: {error}")
+
+def on_close(ws, close_status_code, close_msg):
+    print("WebSocket closed")
+
+async def get_authentication(session: AsyncSession) -> UserAuthentication:
+    """
+    Get the authentication information for a user.
+    """
+    result = await session.exec(
+        select(UserAuthentication).order_by(UserAuthentication.num_used.asc())
+    )
+    return result.scalars().first()
+
 
 async def get_riot_authentication(session: AsyncSession, riot_id: str) -> UserRiotAuthentication:
     """
@@ -12,6 +37,35 @@ async def get_riot_authentication(session: AsyncSession, riot_id: str) -> UserRi
     """
     result = await session.exec(select(UserAuthentication).where(UserAuthentication.riot_id == riot_id))
     return result.scalars().one_or_none()
+
+
+async def get_match_history_from_name_tag(name: str, tag: str, auth: UserRiotAuthentication) -> RiotUser:
+    """
+    Get the Riot user information for a user.
+    """
+    print(f"Fetching match history for {name}#{tag}")
+    res = requests.get(f"https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={riot_api}")
+
+    if res.status_code != 200:
+        raise Exception(f"Error fetching user data: {res.status_code} - {res.text}")
+
+    riot_id = res.json().get("puuid")
+
+    auth_data = auth.model_dump()
+
+    headers = {
+        'Authorization': auth_data['authorization'],
+        'X-Riot-Entitlements-JWT': auth_data['entitlement'],
+        'X-Riot-ClientPlatform': auth_data['client_platform'],
+        'X-Riot-ClientVersion': auth_data['client_version'],
+        "User-Agent": auth_data['user_agent'],
+    }
+    print(riot_id)
+    print(f"#### Headers: {headers}")
+    response = requests.get(f"https://pd.eu.a.pvp.net/match-history/v1/history/{riot_id}", headers=headers)
+
+    return response.json()
+
 
 async def get_match_history(session: AsyncSession, riot_id: str, auth: UserRiotAuthentication) -> RiotUser:
     """
@@ -29,6 +83,7 @@ async def get_match_history(session: AsyncSession, riot_id: str, auth: UserRiotA
     response = requests.get(f"https://pd.eu.a.pvp.net/match-history/v1/history/{riot_id}", headers=headers)
 
     return response.json()
+
 
 async def get_or_create_user(session: AsyncSession, riot_id: str, name: str, tag: str) -> User:
     # 1) Try to find an existing user

@@ -49,6 +49,7 @@ class Requests:
                 response = requests.request(method, self.pd_url + endpoint, headers=self.get_headers(), verify=False)
 
                 if not response.ok:
+                    print(f"Error fetching {url_type} data: {response.status_code} - {response.text}")
                     time.sleep(5)
                     self.headers = {}
                     self.fetch(url_type, endpoint, method)

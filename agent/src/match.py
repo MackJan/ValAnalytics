@@ -18,6 +18,39 @@ class Match:
 
         return match_history
 
+    def get_current_match_details(self) -> {}:
+        match_id = self.get_current_match_id()
+        if not match_id:
+            self.logger.debug("No current match found.")
+            return {}
+        print(f"Current match ID: {match_id}")
+
+        data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
+        match_keys = {"MatchID", "State", "MapID", "ModeID", "Players", "MatchmakingData"}
+
+        clean_match = {
+            k: v
+            for k, v in data.items()
+            if k in match_keys
+        }
+
+        player_keys = {"Subject", "TeamID", "CharacterID", "PlayerIdentity", "SeasonalBadgeInfo"}
+
+        clean_players = []
+        for p in data["Players"]:
+            slim = {k: p[k] for k in player_keys if k in p}
+
+            clean_players.append(slim)
+
+        cleaned_info = {
+            "match": clean_match,
+            "players": clean_players
+        }
+
+        print(f"Cleaned match details: {cleaned_info}")
+        return cleaned_info
+
+
     def get_match_details(self, match_id: str) -> {}:
         match = self.requests.fetch("pd",f"/match-details/v1/matches/{match_id}","get")
         match_keys = {"matchId","mapId","queueID","gameStartMillis","gameLengthMillis","players"}
@@ -47,5 +80,22 @@ class Match:
             "players": clean_players
         }
 
-
+        print(f"Cleaned match details: {cleaned}")
         return cleaned
+
+
+    def get_current_match(self) -> {}:
+        match_id = self.get_current_match_id()
+        if not match_id:
+            self.logger.debug("No current match found.")
+            return {}
+        print(f"Current match ID: {match_id}")
+        return self.get_match_details(match_id)
+
+    def get_current_match_id(self) -> str:
+        match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user["puuid"]}", "get")
+        print(match)
+        if match and "MatchID" in match:
+            return match["MatchID"]
+
+        raise Exception("Could not find current match ID. Make sure you are in a match.")

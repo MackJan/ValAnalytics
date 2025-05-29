@@ -17,6 +17,10 @@ class MatchGet(BaseModel):
     game_start_time: int
     queue: str
 
+class UserNameTag(BaseModel):
+    name: str
+    tag: str
+
 class RiotUser(BaseModel):
     """
     Data returned from the Riot API when a user is authenticated.

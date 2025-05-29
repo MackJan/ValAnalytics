@@ -4,18 +4,20 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import APIRouter
-from typing import List, Literal, Optional, Annotated
+from typing import List, Literal, Optional, Annotated, Dict
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 import httpx
 import time
 import logging
-
+import json
 import jwt
 from jwt.exceptions import InvalidTokenError
-
+import logging
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette.websockets import WebSocketDisconnect
+
 from .database import init_db, engine
 from .models import User, Match, MatchPlayer, MatchTeam, UserAuthentication
 from .schemas import (
@@ -24,9 +26,10 @@ from .schemas import (
     MatchPlayerCreate, MatchPlayerRead,
     TeamCreate, TeamRead,
     UserRiotAuthentication, Token, TokenData,
-    RiotUser, RiotUserGet, MatchGet
+    RiotUser, RiotUserGet, MatchGet, UserNameTag
 )
-from .helper import get_or_create_user, get_riot_authentication, get_match_history
+from .helper import get_or_create_user, get_riot_authentication, get_match_history, get_authentication, \
+    get_match_history_from_name_tag, get_puuid_from_name_tag
 
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
@@ -36,6 +39,7 @@ SECRET_KEY = "4d65a1eb33ddc202c4901f066cf0c12cad8f53ec368d053da5bea0e7fa53977c"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 180
 
+logger = logging.getLogger(__name__)
 
 # App setup
 @asynccontextmanager
@@ -146,6 +150,32 @@ router = APIRouter(prefix="/api")
 
 
 # Auth Endpoints
+@router.post("/match_history/", response_model=List[MatchGet])
+async def get_history(
+        player: UserNameTag
+):
+    async with AsyncSession(engine) as session:
+        auth = await get_authentication(session)
+        if not auth:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Riot authentication not found for the given riot_id"
+            )
+
+        matches = await get_match_history_from_name_tag(player.name, player.tag, auth)
+        match_data = []
+        print(f"#### {matches}")
+        for m in matches["History"]:
+            match = MatchGet(
+                match_uuid=m["MatchID"],
+                game_start_time=m["GameStartTime"],
+                queue=m["QueueID"],
+            )
+            match_data.append(match)
+
+        return match_data
+
+
 @router.post("/users/riot_user/", response_model=RiotUserGet)
 async def get_riot_user(user: RiotUserGet):
     async with AsyncSession(engine) as session:
@@ -156,8 +186,6 @@ async def get_riot_user(user: RiotUserGet):
                 detail="Riot authentication not found for the given riot_id"
             )
 
-
-
         matches = await get_match_history(session, user.riot_id, res)
         print(matches)
         res = res.model_dump()
@@ -166,7 +194,8 @@ async def get_riot_user(user: RiotUserGet):
         )
         return user
 
-@router.get("/match_hitory/", response_model= List[MatchGet])
+
+@router.get("/match_hitory/", response_model=List[MatchGet])
 async def get_match_history_api(
         riot_id: str,
         auth_id: str,
@@ -191,6 +220,7 @@ async def get_match_history_api(
             match_data.append(match)
 
         return match_data
+
 
 @router.post("/users/riot_auth/", response_model=UserRiotAuthentication)
 async def riot_auth(auth: UserRiotAuthentication):
@@ -385,13 +415,70 @@ async def create_player(
         await session.refresh(player_db)
     return player_db
 
+@router.get("/puuid/")
+async def get_puuid(
+        name: str,
+        tag: str,
+):
+    response = await get_puuid_from_name_tag(name=name,tag=tag)
 
-# WebSocket Endpoints
-@app.websocket("/live")
-async def websocket_endpoint(ws: WebSocket):
-    await ws.accept()
-    while True:
-        await ws.receive()
+    return response
+
+# Websocket ConnectionManager
+class ConnectionManager:
+    def __init__(self):
+        self.active_agents: Dict[str, WebSocket] = {}
+
+    async def connect(self, agent_id: str, ws: WebSocket):
+        await ws.accept()
+        print(f"Agent {agent_id} connected")
+        self.active_agents[agent_id] = ws
+
+    def disconnect(self, agent_id: str):
+        self.active_agents.pop(agent_id, None)
+
+    async def request_data(self, agent_id: str, match_id: str):
+        ws = self.active_agents.get(agent_id)
+        if not ws:
+            raise HTTPException(status_code=404, detail="Agent not connected")
+        # send a request message down the socket
+        await ws.send_json({
+            "type": "request_data",
+            "match_id": match_id
+        })
+
+
+manager = ConnectionManager()
+
+class TriggerRequest(BaseModel):
+    match_id: str
+
+@app.post("/trigger/{agent_id}")
+async def trigger_agent(agent_id: str, req: TriggerRequest):
+    """
+    Tell the agent with agent_id to send us its latest match data
+    for the given match_id.
+    """
+    await manager.request_data(agent_id, req.match_id)
+    return {"status": "requested", "agent_id": agent_id, "match_id": req.match_id}
+
+
+@app.websocket("/ws/{agent_id}")
+async def websocket_agent_endpoint(agent_id: str, ws: WebSocket):
+    logger.error(f"WebSocket connection request for agent {agent_id}")
+    await manager.connect(agent_id, ws)
+    try:
+        while True:
+            raw_data = await ws.receive_text()  # Receive raw text
+            data = json.loads(raw_data)  # Parse JSON manually
+            print(f"Received data from agent {agent_id}: {data}")
+            if data.get("type") == "live_data":
+                print(f"Received live data for agent {agent_id}: {data}")
+            else:
+                await ws.send_json({"error": "Unknown message type"})
+    except WebSocketDisconnect:
+        manager.disconnect(agent_id)
+        print(f"Agent {agent_id} disconnected")
 
 
 # Include router

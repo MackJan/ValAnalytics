@@ -13,6 +13,7 @@ class UserAuthentication(SQLModel, table=True):
     client_platform: str
     client_version: str
     user_agent: str
+    num_used: int = Field(default=0)
 
     disabled: bool = Field(default=False)
 
@@ -30,8 +31,8 @@ class User(SQLModel, table=True):
     disabled: bool = Field(default=False)
 
     # your existing profile info
-    name: str = Field(default=None)
-    tag: str = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    tag: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.now)
 
     # relationship back to matches
