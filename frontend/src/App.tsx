@@ -21,14 +21,14 @@ const App = () => {
         <Router>
             <Header/>
             <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/tracker" element={<Tracker />} />
-                <Route path="/login" element={<Login/>} />
-                <Route path="/register" element={<Register/>} />
-                <Route path="/riot_login" element={<RiotLogin/>} />
+                <Route path="/" element={<Home/>}/>
+                <Route path="/tracker" element={<Tracker/>}/>
+                <Route path="/login" element={<Login/>}/>
+                <Route path="/register" element={<Register/>}/>
+                <Route path="/riot_login" element={<RiotLogin/>}/>
                 <Route
                     path="/live/:matchUuid"
-                    element={<LiveLoader />}
+                    element={<LiveLoader/>}
                 />
             </Routes>
         </Router>
@@ -37,7 +37,7 @@ const App = () => {
 
 
 function LiveLoader() {
-    const { matchUuid } = useParams<{ matchUuid: string }>();
+    const {matchUuid} = useParams<{ matchUuid: string }>();
     const [initialMatchData, setInitialMatchData] = React.useState<MatchData | null>(null);
 
     React.useEffect(() => {
@@ -49,69 +49,77 @@ function LiveLoader() {
     }, [matchUuid]);
 
     if (!initialMatchData) return <div>Loading...</div>;
-    return <LiveDashboard initialMatchData={initialMatchData} />;
+    return <LiveDashboard initialMatchData={initialMatchData}/>;
 }
 
 async function FetchMatchData(matchUuid: string): Promise<MatchData> {
     //const resp = await fetch(`/api/matches/${matchUuid}`);
-    //return resp.json();
 
     return {
-        'match': {
-            'MatchID': '66a839f4-6f7d-412d-8e0f-6dccadd8a7d0',
-            'State': 'IN_PROGRESS',
-            'MapID': '/Game/Maps/Ascent/Ascent',
-            'ModeID': '/Game/GameModes/Bomb/BombGameMode.BombGameMode_C',
-            'Players': [
+        "match": {
+            "MatchID": "a3c7c279-7c90-4e94-ad94-1861c9bfdd07",
+            "State": "IN_PROGRESS",
+            "MapID": "/Game/Maps/Canyon/Canyon",
+            "ModeID": "/Game/GameModes/Bomb/BombGameMode.BombGameMode_C",
+            "Players": [
                 {
-                    'Subject': '2e444344-069c-5fc5-8124-6e2c6e552bfc',
-                    'TeamID': 'Blue',
-                    'CharacterID': '320b2a48-4d9b-a075-30f1-1f93a9b638fa',
-                    'PlayerIdentity': {
-                        'Subject': '2e444344-069c-5fc5-8124-6e2c6e552bfc',
-                        'PlayerCardID': '59ed0836-4bd9-95a5-14c1-ed87ed786d06',
-                        'PlayerTitleID': 'bf097526-4503-6b17-2859-49a67bde66d2',
-                        'AccountLevel': 50,
-                        'PreferredLevelBorderID': '5156a90d-4d65-58d0-f6a8-48a0c003878a',
-                        'Incognito': false,
-                        'HideAccountLevel': false
+                    "Subject": "2e444344-069c-5fc5-8124-6e2c6e552bfc",
+                    "TeamID": "Red",
+                    "CharacterID": "320b2a48-4d9b-a075-30f1-1f93a9b638fa",
+                    "PlayerIdentity": {
+                        "Subject": "2e444344-069c-5fc5-8124-6e2c6e552bfc",
+                        "PlayerCardID": "59ed0836-4bd9-95a5-14c1-ed87ed786d06",
+                        "PlayerTitleID": "bf097526-4503-6b17-2859-49a67bde66d2",
+                        "AccountLevel": 50,
+                        "PreferredLevelBorderID": "5156a90d-4d65-58d0-f6a8-48a0c003878a",
+                        "Incognito": false,
+                        "HideAccountLevel": false
                     },
-                    'SeasonalBadgeInfo': {
-                        'SeasonID': '',
-                        'NumberOfWins': 0,
-                        'WinsByTier': 0,
-                        'Rank': 0,
-                        'LeaderboardRank': 0
+                    "SeasonalBadgeInfo": {
+                        "SeasonID": "",
+                        "NumberOfWins": 0,
+                        "WinsByTier": undefined,
+                        "Rank": 0,
+                        "LeaderboardRank": 0
                     },
-                    'IsCoach': false,
-                    'IsAssociated': true,
-                    'PlatformType': 'pc'
+                    "IsCoach": false,
+                    "IsAssociated": true,
+                    "PlatformType": "pc"
                 }
             ],
+            "MatchmakingData": undefined,
+            "match_stats": {
+                "sessionLoopState": "INGAME",
+                "partyOwnerMatchScoreAllyTeam": 0,
+                "partyOwnerMatchScoreEnemyTeam": 0,
+                "matchMap": "/Game/Maps/Canyon/Canyon",
+                "partySize": 1
+            }
         },
-        'players': [
+        "players": [
             {
-                'PlayerIdentity': {
-                    'Subject': '2e444344-069c-5fc5-8124-6e2c6e552bfc',
-                    'PlayerCardID': '59ed0836-4bd9-95a5-14c1-ed87ed786d06',
-                    'PlayerTitleID': 'bf097526-4503-6b17-2859-49a67bde66d2',
-                    'AccountLevel': 50,
-                    'PreferredLevelBorderID': '5156a90d-4d65-58d0-f6a8-48a0c003878a',
-                    'Incognito': false,
-                    'HideAccountLevel': false
+                "PlayerIdentity": {
+                    "Subject": "2e444344-069c-5fc5-8124-6e2c6e552bfc",
+                    "PlayerCardID": "59ed0836-4bd9-95a5-14c1-ed87ed786d06",
+                    "PlayerTitleID": "bf097526-4503-6b17-2859-49a67bde66d2",
+                    "AccountLevel": 50,
+                    "PreferredLevelBorderID": "5156a90d-4d65-58d0-f6a8-48a0c003878a",
+                    "Incognito": false,
+                    "HideAccountLevel": false
                 },
-                'CharacterID': '320b2a48-4d9b-a075-30f1-1f93a9b638fa',
-                'Subject': '2e444344-069c-5fc5-8124-6e2c6e552bfc',
-                'SeasonalBadgeInfo': {
-                    'SeasonID': '',
-                    'NumberOfWins': 0,
-                    'WinsByTier': null,
-                    'Rank': 0,
-                    'LeaderboardRank': 0
-                },
-                'TeamID': 'Blue'
+                "CharacterID": "320b2a48-4d9b-a075-30f1-1f93a9b638fa",
+                "TeamID": "Red",
+                "Subject": "2e444344-069c-5fc5-8124-6e2c6e552bfc",
+                "SeasonalBadgeInfo": {
+                    "SeasonID": "",
+                    "NumberOfWins": 0,
+                    "WinsByTier": undefined,
+                    "Rank": 0,
+                    "LeaderboardRank": 0
+                }
             }
         ]
     }
 }
+
 export default App;

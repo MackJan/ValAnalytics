@@ -3,7 +3,11 @@ from agent.src import req
 import user
 import urllib3
 import logging
+from presence import Presence
+from name_service import get_map_name, get_agent_name
+
 urllib3.disable_warnings()
+
 
 class Match:
     def __init__(self):
@@ -11,6 +15,7 @@ class Match:
         self.user = user.User()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
+        self.presence = Presence(self.requests)
 
     def get_match_history(self, last:int = 10):
         match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user['puuid']}", "get")
@@ -25,7 +30,16 @@ class Match:
             return {}
         print(f"Current match ID: {match_id}")
 
+        presence = self.presence.get_private_presence(self.presence.get_presence())
+
         data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
+        presence_keys = {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam", "partyOwnerMatchScoreEnemyTeam"}
+        match_stats = {
+            k: v
+            for k, v in presence.items()
+            if k in presence_keys
+        }
+
         match_keys = {"MatchID", "State", "MapID", "ModeID", "Players", "MatchmakingData"}
 
         clean_match = {
@@ -33,12 +47,15 @@ class Match:
             for k, v in data.items()
             if k in match_keys
         }
+        clean_match["match_stats"] = match_stats
+        clean_match["MapID"] = get_map_name(clean_match["MapID"])
 
         player_keys = {"Subject", "TeamID", "CharacterID", "PlayerIdentity", "SeasonalBadgeInfo"}
 
         clean_players = []
         for p in data["Players"]:
             slim = {k: p[k] for k in player_keys if k in p}
+            slim["CharacterID"] = get_agent_name(slim["CharacterID"])
 
             clean_players.append(slim)
 

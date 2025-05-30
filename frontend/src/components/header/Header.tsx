@@ -13,6 +13,9 @@ const Header: React.FC = () => {
           <li>
             <a href="/login" className="text-sm/6 font-semibold">Login</a>
           </li>
+            <li>
+                <a href="/live" className="text-sm/6 font-semibold">Live</a>
+            </li>
         </ul>
       </nav>
     </header>

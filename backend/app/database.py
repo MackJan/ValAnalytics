@@ -23,4 +23,12 @@ async def init_db() -> None:
         # Create all tables based on SQLModel metadata
         await conn.run_sync(SQLModel.metadata.create_all)
 
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency to get a database session.
+    This should be used in FastAPI routes to access the database.
+    """
+    async with AsyncSession(engine) as session:
+        yield session
+
 SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
