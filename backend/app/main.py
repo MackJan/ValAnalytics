@@ -7,9 +7,7 @@ from fastapi import APIRouter
 from typing import List, Literal, Optional, Annotated, Dict
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-import httpx
 import time
-import logging
 import json
 import jwt
 from jwt.exceptions import InvalidTokenError
@@ -29,7 +27,7 @@ from .schemas import (
     RiotUser, RiotUserGet, MatchGet, UserNameTag
 )
 from .helper import get_or_create_user, get_riot_authentication, get_match_history, get_authentication, \
-    get_match_history_from_name_tag, get_puuid_from_name_tag
+    get_match_history_from_name_tag
 
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
@@ -415,30 +413,30 @@ async def create_player(
         await session.refresh(player_db)
     return player_db
 
-@router.get("/puuid/")
-async def get_puuid(
-        name: str,
-        tag: str,
-):
-    response = await get_puuid_from_name_tag(name=name,tag=tag)
-
-    return response
-
 # Websocket ConnectionManager
 class ConnectionManager:
     def __init__(self):
-        self.active_agents: Dict[str, WebSocket] = {}
+        self.live_conns: Dict[str, List[WebSocket]] = {}
+        self.agent_conns: Dict[str, WebSocket] = {}
 
-    async def connect(self, agent_id: str, ws: WebSocket):
+    async def connect_agent(self, agent_id: str, ws: WebSocket):
         await ws.accept()
         print(f"Agent {agent_id} connected")
-        self.active_agents[agent_id] = ws
+        self.agent_conns[agent_id] = ws
 
-    def disconnect(self, agent_id: str):
-        self.active_agents.pop(agent_id, None)
+    async def connect_frontend(self, match_id: str, ws: WebSocket):
+        await ws.accept()
+        print(f"Frontend connected for match {match_id}")
+        self.live_conns.setdefault(match_id, []).append(ws)
+
+    def disconnect_frontend(self, match_uuid: str, ws: WebSocket):
+        self.live_conns[match_uuid].remove(ws)
+
+    def disconnect_agent(self, match_id: str):
+        self.agent_conns.pop(match_id, None)
 
     async def request_data(self, agent_id: str, match_id: str):
-        ws = self.active_agents.get(agent_id)
+        ws = self.agent_conns.get(agent_id)
         if not ws:
             raise HTTPException(status_code=404, detail="Agent not connected")
         # send a request message down the socket
@@ -447,11 +445,44 @@ class ConnectionManager:
             "match_id": match_id
         })
 
+    async def broadcast(self, match_id: str, message: dict):
+        print(f"Broadcasting message to match {match_id}: {message}")
+        for conn in self.live_conns.get(match_id, []):
+            await conn.send_json(message)
+
 
 manager = ConnectionManager()
 
+
+@app.websocket("/ws/agent/{match_id}")
+async def websocket_agent_endpoint(match_id: str, ws: WebSocket):
+    await manager.connect_agent(match_id, ws)
+    try:
+        while True:
+            raw_data = await ws.receive_text()
+            data = json.loads(raw_data)
+            if data.get("type") == "live_data":
+                await manager.broadcast(match_id,data)
+            else:
+                await ws.send_json({"error": "Unknown message type"})
+    except WebSocketDisconnect:
+        manager.disconnect_agent(match_id)
+
+@app.websocket("/ws/live/{match_uuid}")
+async def live_ws(ws: WebSocket, match_uuid: str):
+    # validate token / user owns this match…
+    await manager.connect_frontend(match_uuid, ws)
+    try:
+        while True:
+            # keep connection alive; ignore pings from client
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_frontend(match_uuid, ws)
+
+
 class TriggerRequest(BaseModel):
     match_id: str
+
 
 @app.post("/trigger/{agent_id}")
 async def trigger_agent(agent_id: str, req: TriggerRequest):
@@ -463,22 +494,7 @@ async def trigger_agent(agent_id: str, req: TriggerRequest):
     return {"status": "requested", "agent_id": agent_id, "match_id": req.match_id}
 
 
-@app.websocket("/ws/{agent_id}")
-async def websocket_agent_endpoint(agent_id: str, ws: WebSocket):
-    logger.error(f"WebSocket connection request for agent {agent_id}")
-    await manager.connect(agent_id, ws)
-    try:
-        while True:
-            raw_data = await ws.receive_text()  # Receive raw text
-            data = json.loads(raw_data)  # Parse JSON manually
-            print(f"Received data from agent {agent_id}: {data}")
-            if data.get("type") == "live_data":
-                print(f"Received live data for agent {agent_id}: {data}")
-            else:
-                await ws.send_json({"error": "Unknown message type"})
-    except WebSocketDisconnect:
-        manager.disconnect(agent_id)
-        print(f"Agent {agent_id} disconnected")
+
 
 
 # Include router
