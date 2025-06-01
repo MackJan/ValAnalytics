@@ -4,7 +4,6 @@ import time
 
 
 def decode_presence(private):
-    # try:
     if "{" not in str(private) and private is not None and str(private) != "":
         dct = json.loads(base64.b64decode(str(private)).decode("utf-8"))
         if dct.get("isValid"):
@@ -30,6 +29,7 @@ class Presence:
 
     def get_private_presence(self, presences):
         for presence in presences:
+            print(self.requests.puuid)
             if presence['puuid'] == self.requests.puuid:
                 if presence.get("championId") is not None or presence.get("product") == "league_of_legends":
                     return None

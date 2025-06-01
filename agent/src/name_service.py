@@ -1,3 +1,18 @@
+from typing import Any
+import requests
+
+params={"isPlayableCharacter":"true", "language": "en-US"}
+agent_data = requests.get("https://valorant-api.com/v1/agents", params=params).json()
+
+agents = {}
+for a in agent_data["data"]:
+    agents[a["uuid"]] = {
+        "uuid": a["uuid"],
+        "name": a["displayName"],
+        "role": a["role"]["displayName"],
+        #"description": a["description"],
+        "icon": a["displayIcon"],}
+
 def get_map_name(map_id: str) -> str:
     """
     Get the map name from the map ID.
@@ -19,20 +34,30 @@ def get_agent_name(agent_id: str) -> str:
     """
     Get the agent name from the agent ID.
     """
-    agents = {
-        "5f8d3a7f-467b-97f3-062c-13acf203c006": "Breach",
-        "117ed9e3-49f3-6512-3ccf-0cada7e3823b": "Cypher",
-        "1e58de9c-4950-5125-93e9-a0aee9f98746": "Killjoy",
-        "569fdd95-4d10-43ab-ca70-79becc718b46": "Sage",
-        "320b2a48-4d9b-a075-30f1-1f93a9b638fa": "Sova",
-        "707eab51-4836-f488-046a-cda6bf494859": "Viper",
-        "8e253930-4c05-31dd-1b6c-968525494517": "Omen",
-        "eb93336a-449b-9c1b-0a54-a891f7921d69": "Phoenix",
-        "add6443a-41bd-e414-f6ad-e58d267f4e95": "Jett",
-        "f94c3b30-42be-e959-889c-5aa313dba261": "Raze",
-        "a3bfb853-43b2-7238-a4f1-ad90e9e46bcc": "Reyna",
-        "6f2a04ca-43e0-be17-7f36-b3908627744d": "Skye",
-        "7f94d92c-4234-0a36-9646-3a87eb8b5c89": "Yoru",
-        "601dbbe7-43ce-be57-2a40-4abd24953621": "KAY/O"
-    }
-    return agents.get(agent_id, agent_id)
+    return agents.get(agent_id, {}).get("name", agent_id)
+
+def get_name_from_puuid(puuid: str, req) -> dict[str, str | Any] | dict[str, str]:
+    """
+    Get the name from the PUUID.
+    """
+
+    data = req.fetch("pd", f"/name-service/v2/players/", "put", jsonData=[puuid])
+    return {"Subject": puuid, "Name": data[0]["GameName"], "Tag": data[0]["TagLine"]} if data else {"Subject": puuid, "Name": "", "Tag": ""}
+
+def get_multiple_names_from_puuid(puuids: list[str], req) -> dict[Any, str]:
+    """
+    Get the names from multiple PUUIDs.
+    """
+    data = req.fetch("pd", f"/name-service/v2/players/", "put", jsonData=puuids)
+
+    name_dict = {player["Subject"]: f"{player['GameName']}#{player['TagLine']}"
+                     for player in data}
+    return name_dict
+
+def get_agent_icon(agent_id: str) -> str:
+    """
+    Get the agent icon from the agent ID.
+    """
+    dct = agents.get(agent_id, {})
+
+    return dct.get("icon", "")

@@ -4,7 +4,7 @@ import user
 import urllib3
 import logging
 from presence import Presence
-from name_service import get_map_name, get_agent_name
+from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_multiple_names_from_puuid, get_agent_icon
 
 urllib3.disable_warnings()
 
@@ -51,17 +51,29 @@ class Match:
         clean_match["MapID"] = get_map_name(clean_match["MapID"])
 
         player_keys = {"Subject", "TeamID", "CharacterID", "PlayerIdentity", "SeasonalBadgeInfo"}
-
-        clean_players = []
+        puuids = []
         for p in data["Players"]:
-            slim = {k: p[k] for k in player_keys if k in p}
-            slim["CharacterID"] = get_agent_name(slim["CharacterID"])
+            puuids.append(p["Subject"])
 
-            clean_players.append(slim)
+        names = get_multiple_names_from_puuid(puuids, self.requests)
+
+        for x in range(len(clean_match["Players"])):
+            clean_match["Players"][x]["Name"] = names.get(clean_match["Players"][x]["Subject"], "Unknown Player")
+            clean_match["Players"][x]["AgentIcon"] = get_agent_icon(clean_match["Players"][x]["CharacterID"])
+            clean_match["Players"][x]["CharacterID"] = get_agent_name(clean_match["Players"][x]["CharacterID"])
+
+
+        #clean_players = []
+        #for p in data["Players"]:
+        #    slim = {k: p[k] for k in player_keys if k in p}
+        #    slim["CharacterID"] = get_agent_name(slim["CharacterID"])
+        #    slim["Name"] = names.get(p["Subject"], "Unknown Player")
+
+        #    clean_players.append(slim)
 
         cleaned_info = {
             "match": clean_match,
-            "players": clean_players
+            #"players": clean_players
         }
 
         print(f"Cleaned match details: {cleaned_info}")

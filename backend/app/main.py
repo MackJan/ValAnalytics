@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     async def live_ws(ws: WebSocket, match_uuid: str):
         await manager.connect_frontend(match_uuid, ws)
         try:
+            await manager.request_data(match_uuid)
             while True:
                 await ws.receive_text()  # keep-alive
         except WebSocketDisconnect:
@@ -81,15 +82,6 @@ def create_app() -> FastAPI:
 
     class TriggerRequest(BaseModel):
         match_id: str
-
-    @app.post("/trigger/{match_id}")
-    async def trigger_agent(match_id: str, req: TriggerRequest):
-        """
-        Tell the agent with agent_id to send us its latest match data
-        for the given match_id.
-        """
-        data = await manager.request_data(match_id)
-        return data
 
     return app
 app = create_app()

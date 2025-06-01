@@ -1,6 +1,9 @@
+import asyncio
 import json
 import logging
 from typing import Dict, List
+
+import websocket
 from fastapi import WebSocket, HTTPException
 from starlette.websockets import WebSocketDisconnect
 
@@ -26,15 +29,11 @@ class ConnectionManager:
     async def request_data(self, match_id: str):
         ws = self.agent_conns.get(match_id)
         logging.getLogger(__name__).error(f"Requesting data for match {match_id} from agent connection: {ws}")
+
         if not ws:
-            raise HTTPException(status_code=404, detail="Agent not connected")
+            return
+
         await ws.send_json({"type": "request_data", "match_id": match_id})
-        # wait for data from agent
-        #response = await ws.receive_json()
-        #logging.getLogger(__name__).error(f"Received data from agent for match {match_id}: {response}")
-        #if response.get("type") != "match_data":
-        #    raise HTTPException(status_code=500, detail="Invalid response from agent")
-        #return response.get("data")
 
 
     async def broadcast(self, match_id: str, message: dict):
