@@ -63,9 +63,20 @@ async def run_agent():
     match_uuid = None
     ws = None
     last_update = None
+    last_rpc_update = None
     req.get_headers()
 
     message_queue = asyncio.Queue()
+
+    def dicts_differ(d1, d2):
+        if isinstance(d1, dict) and isinstance(d2, dict):
+            if d1.keys() != d2.keys():
+                return True
+            for k in d1:
+                if dicts_differ(d1[k], d2[k]):
+                    return True
+            return False
+        return d1 != d2
 
     async def handle_ws_messages(ws):
         while True:
@@ -139,7 +150,19 @@ async def run_agent():
         elif game_state == "INGAME":
             try:
                 match_data = m.get_current_match_details()
-                rpc.set_match_presence(match_data)
+                if match_data is None:
+                    print("No match data found, waiting for next update...")
+                    await asyncio.sleep(5)
+                    continue
+
+                if last_rpc_update is None:
+                    last_rpc_update = match_data
+                    rpc.set_match_presence(match_data, int(time.time()))
+
+                if  dicts_differ(last_rpc_update, match_data):
+                    rpc.set_match_presence(match_data)
+                    last_rpc_update = match_data
+
                 if match_data and match_data.match_id:
                     current_match_uuid = match_data.match_id
 
@@ -161,16 +184,6 @@ async def run_agent():
                         await create_active_match(match_uuid)
 
                     if last_update is not None:
-                        def dicts_differ(d1, d2):
-                            if isinstance(d1, dict) and isinstance(d2, dict):
-                                if d1.keys() != d2.keys():
-                                    return True
-                                for k in d1:
-                                    if dicts_differ(d1[k], d2[k]):
-                                        return True
-                                return False
-                            return d1 != d2
-
                         if not dicts_differ(match_data, last_update):
                             print("No new data to send, skipping...")
                             await asyncio.sleep(5)

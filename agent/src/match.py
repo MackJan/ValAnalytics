@@ -1,5 +1,5 @@
 from agent.src import req
-import user
+from user import Users
 import urllib3
 import logging
 from presence import Presence
@@ -13,13 +13,13 @@ urllib3.disable_warnings()
 class Match:
     def __init__(self):
         self.requests = req.Requests()
-        self.user = user.User()
+        self.user = Users()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.presence = Presence(self.requests)
 
     def get_own_match_history(self, last: int = 10) -> MatchHistory:
-        match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user['puuid']}", "get")
+        match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user.puuid}", "get")
         match_history = match_history["History"][:last]
         matches = [
             BareMatch(
@@ -30,7 +30,7 @@ class Match:
             for m in match_history
         ]
 
-        return MatchHistory(match_ids=matches, subject=self.user.user["puuid"])
+        return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
     def get_current_match_details(self) -> Optional[CurrentMatch]:
         match_id = self.get_current_match_id()
@@ -66,11 +66,9 @@ class Match:
                     rank="unranked", #TODO
                 )
             )
-
         return CurrentMatch(
             match_id=data["MatchID"],
             game_map=get_map_name(data["MapID"]),
-            game_length=data.get("GameLengthMillis", 0),
             game_start=data.get("GameStartMillis", 0),
             game_mode=self.get_current_gamemode(),
             state=data["State"],
@@ -112,7 +110,7 @@ class Match:
 
 
     def get_current_match_id(self) -> str:
-        match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user["puuid"]}", "get")
+        match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user.puuid}", "get")
         print(match)
         if match and "MatchID" in match:
             return match["MatchID"]

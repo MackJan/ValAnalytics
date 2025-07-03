@@ -1,7 +1,7 @@
 from agent.src import req
 from models import *
 
-class User:
+class Users:
     def __init__(self):
         self.requests = req.Requests()
         self.user = self.get_user()

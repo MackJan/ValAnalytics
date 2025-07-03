@@ -2,7 +2,7 @@ import websockets
 import json
 import asyncio
 import datetime
-from user import User
+from user import Users
 from match import Match
 import requests
 from datetime import datetime
@@ -29,7 +29,7 @@ async def push_match_detail(match: dict):
 
 
 def post_user_and_match():
-    user = User()
+    user = Users()
     user_data = {
         "riot_id": user.user["puuid"],
         "name": user.user["game_name"],

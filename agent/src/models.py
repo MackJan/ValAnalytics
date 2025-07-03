@@ -54,7 +54,6 @@ class SingleMatch:
 class CurrentMatch:
     match_id: str
     game_map: str
-    game_length: int
     game_start: int
     game_mode: str
     state: str
