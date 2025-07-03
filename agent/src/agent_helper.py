@@ -144,20 +144,4 @@ def post_auth():
     print(response.text)
 
 
-def post_current_match():
-    m = Match()
-    match = m.get_current_match()
-    if not match:
-        print("No current match found.")
-        return
 
-    match_data = {
-        "match_uuid": match["matchInfo"]["matchId"],
-        "map_name": match["matchInfo"]["mapId"],
-        "queue": match["matchInfo"]["queueID"],
-        "started_at": str(datetime.fromtimestamp(match["matchInfo"]["gameStartMillis"] / 1000)),
-        "ended_at": str(datetime.fromtimestamp(
-            (match["matchInfo"]["gameLengthMillis"] + match["matchInfo"]["gameStartMillis"]) / 1000))
-    }
-
-    push_match_detail(match_data)

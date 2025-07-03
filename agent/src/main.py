@@ -1,18 +1,13 @@
-import requests
-from req import Requests
-from match import Match
-from user import User
-from datetime import datetime, timezone
-import re
-import json
-import websockets
-import threading
 import time
+
+from agent.src.models import EnhancedJSONEncoder
+from datetime import timezone
 from agent_helper import *
 from presence import Presence, decode_presence
 from discord_rpc import DiscordRPC
 import asyncio
 from constants import *
+import dataclasses
 
 req = Requests()
 
@@ -144,12 +139,9 @@ async def run_agent():
         elif game_state == "INGAME":
             try:
                 match_data = m.get_current_match_details()
-                presence_data_raw = p.get_private_presence(p.get_presence())
-                match_data["match"]["ModeID"] = gamemodes.get(presence_data_raw["queueId"])
                 rpc.set_match_presence(match_data)
-                print(match_data)
-                if match_data and match_data.get("match", {}).get("MatchID"):
-                    current_match_uuid = match_data["match"]["MatchID"]
+                if match_data and match_data.match_id:
+                    current_match_uuid = match_data.match_id
 
                     # Only reconnect if match ID changed or connection is closed
                     if current_match_uuid != match_uuid or ws is None:
@@ -223,3 +215,4 @@ async def run_agent():
 
 if __name__ == "__main__":
     asyncio.run(run_agent())
+    # print(json.dumps(m.get_match_details("4c1d989d-d335-4431-b4fb-985bd336baaa"), cls=EnhancedJSONEncoder))
