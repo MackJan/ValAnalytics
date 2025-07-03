@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import IngameDashboard from "./IngameDashboard.tsx";
+import {activeMatchApi} from "../../api.ts";
 
 export interface Friend {
     Name: string;
@@ -144,6 +145,9 @@ export const LiveDashboard: React.FC = () => {
         };
         ws.onerror = (err) =>
             console.error(`WebSocket ${connectionId} error:`, err);
+            if (matchUuid) {
+                activeMatchApi.deleteActiveMatchUUID(matchUuid);
+            }
         ws.onclose = () =>
             console.log(`WebSocket ${connectionId} closed for match ${uuid}`);
 
@@ -153,33 +157,8 @@ export const LiveDashboard: React.FC = () => {
     }, [matchUuid]);
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6">
+        <div className="min-h-screen bg-zinc-900 text-white p-6">
             <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-purple-400 mb-2">
-                        Valorant Dashboard
-                    </h1>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">GameTag</h3>
-                            <p className="truncate">Test#Test</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Rank</h3>
-                            <p className={`font-semibold`}>Diamond 1</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Region</h3>
-                            <p>EUW</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Level</h3>
-                            <p>321</p>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Only render IngameDashboard once matchData is defined */}
                 {matchData ? (
                     <IngameDashboard matchData={matchData}/>

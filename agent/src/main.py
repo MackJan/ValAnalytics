@@ -10,6 +10,9 @@ import threading
 import time
 from agent_helper import *
 from presence import Presence, decode_presence
+from discord_rpc import DiscordRPC
+import asyncio
+from constants import *
 
 req = Requests()
 
@@ -18,6 +21,48 @@ ws_url = "ws://localhost:8000/ws/agent"
 req.get_headers()
 m = Match()
 p = Presence(req)
+rpc = DiscordRPC()
+
+async def create_active_match(match_uuid):
+    """Create an active match entry in the backend"""
+    try:
+        payload = {"match_uuid": match_uuid}
+        response = requests.post(f"{base_url}/active_matches/", json=payload)
+        if response.status_code == 201:
+            print(f"Successfully created active match entry for {match_uuid}")
+            return True
+        elif response.status_code == 400:
+            # Match might already exist, that's okay
+            print(f"Active match {match_uuid} already exists")
+            return True
+        else:
+            print(f"Failed to create active match: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        print(f"Error creating active match: {str(e)}")
+        return False
+
+async def end_active_match(match_uuid):
+    """End an active match entry in the backend"""
+    try:
+        # First get the active match ID
+        response = requests.get(f"{base_url}/active_matches/")
+        if response.status_code == 200:
+            active_matches = response.json()
+            for match in active_matches:
+                if match["match_uuid"] == match_uuid and not match.get("ended_at"):
+                    # End this match
+                    end_payload = {"ended_at": datetime.now(timezone.utc).isoformat()}
+                    end_response = requests.patch(f"{base_url}/active_matches/{match['id']}/", json=end_payload)
+                    if end_response.status_code == 200:
+                        print(f"Successfully ended active match {match_uuid}")
+                        return True
+                    break
+        print(f"Could not find or end active match {match_uuid}")
+        return False
+    except Exception as e:
+        print(f"Error ending active match: {str(e)}")
+        return False
 
 async def run_agent():
     match_uuid = None
@@ -68,15 +113,41 @@ async def run_agent():
             continue
         elif game_state == "MENUS":
             print("In menus, waiting for game to start...")
+
+            party_data = decode_presence(p.get_private_presence(p.get_presence()))
+            presence_data = {
+                "state": "Menus",
+                "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                "start": int(datetime.now(timezone.utc).timestamp()),
+                "large_image": "logo",
+            }
+
+            rpc.set_presence(**presence_data)
+
             await asyncio.sleep(5)
             continue
+
         elif game_state == "PREGAME":
             print("In pregame, waiting for match to start...")
+            party_data = decode_presence(p.get_private_presence(p.get_presence()))
+            presence_data = {
+                "state": "Pregame",
+                "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                "start": int(datetime.now(timezone.utc).timestamp()),
+                "large_image": "logo",
+            }
+
+            rpc.set_presence(**presence_data)
+
             await asyncio.sleep(5)
             pass
         elif game_state == "INGAME":
             try:
                 match_data = m.get_current_match_details()
+                presence_data_raw = p.get_private_presence(p.get_presence())
+                match_data["match"]["ModeID"] = gamemodes.get(presence_data_raw["queueId"])
+                rpc.set_match_presence(match_data)
+                print(match_data)
                 if match_data and match_data.get("match", {}).get("MatchID"):
                     current_match_uuid = match_data["match"]["MatchID"]
 
@@ -93,6 +164,9 @@ async def run_agent():
 
                         # Start listening for incoming messages
                         asyncio.create_task(handle_ws_messages(ws))
+
+                        # Create an active match entry in the backend
+                        await create_active_match(match_uuid)
 
                     if last_update is not None:
                         def dicts_differ(d1, d2):
@@ -138,8 +212,14 @@ async def run_agent():
                 ws = None
 
             await asyncio.sleep(10)
+        else:
+            # If the game state is not in-game, end the active match
+            if match_uuid is not None:
+                await end_active_match(match_uuid)
+                match_uuid = None
+
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
     asyncio.run(run_agent())
-

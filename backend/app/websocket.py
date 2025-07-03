@@ -6,6 +6,7 @@ from typing import Dict, List
 import websocket
 from fastapi import WebSocket, HTTPException
 from starlette.websockets import WebSocketDisconnect
+from .cleanup_service import cleanup_service
 
 class ConnectionManager:
     def __init__(self):
@@ -35,11 +36,11 @@ class ConnectionManager:
 
         await ws.send_json({"type": "request_data", "match_id": match_id})
 
-
     async def broadcast(self, match_id: str, message: dict):
+        # Update match activity when we receive data from agent
+        await cleanup_service.update_match_activity(match_id)
+
         for conn in self.live_conns.get(match_id, []):
             await conn.send_json(message)
 
 manager = ConnectionManager()
-
-

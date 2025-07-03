@@ -8,13 +8,22 @@ from starlette.websockets import WebSocketDisconnect
 from .database import init_db
 from .api import router as api_router
 from .websocket import ConnectionManager
+from .cleanup_service import cleanup_service
 import time, logging
 
 logger = logging.getLogger(__name__)
 
 async def lifespan(app: FastAPI):
+    # Startup
     await init_db()
+    cleanup_service.start()
+    logger.info("Application startup complete")
+
     yield
+
+    # Shutdown
+    await cleanup_service.stop()
+    logger.info("Application shutdown complete")
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Valorant Performance Tracker", lifespan=lifespan)

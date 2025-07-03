@@ -33,6 +33,7 @@ class Match:
         presence = self.presence.get_private_presence(self.presence.get_presence())
 
         data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
+        print(f"Raw match data: {data}")
         presence_keys = {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam", "partyOwnerMatchScoreEnemyTeam"}
         match_stats = {
             k: v
@@ -40,7 +41,7 @@ class Match:
             if k in presence_keys
         }
 
-        match_keys = {"MatchID", "State", "MapID", "ModeID", "Players", "MatchmakingData"}
+        match_keys = {"MatchID", "State", "MapID", "Players", "MatchmakingData"}
 
         clean_match = {
             k: v
@@ -49,6 +50,7 @@ class Match:
         }
         clean_match["match_stats"] = match_stats
         clean_match["MapID"] = get_map_name(clean_match["MapID"])
+        clean_match["ModeID"] = data["ProvisioningFlow"]
 
         player_keys = {"Subject", "TeamID", "CharacterID", "PlayerIdentity", "SeasonalBadgeInfo"}
         puuids = []

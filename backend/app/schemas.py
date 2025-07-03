@@ -167,5 +167,18 @@ class MatchRead(MatchBase):
     class Config:
         from_attributes = True
 
+class ActiveMatchCreate(BaseModel):
+    """Schema for creating a new active match"""
+    match_uuid: str
 
+class ActiveMatchRead(BaseModel):
+    """Schema for reading active match data"""
+    id: int
+    match_uuid: str
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    last_update: datetime
 
+class ActiveMatchUpdate(BaseModel):
+    """Schema for updating active match (mainly for ending matches)"""
+    ended_at: Optional[datetime] = None

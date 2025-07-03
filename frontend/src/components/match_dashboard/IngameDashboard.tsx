@@ -1,110 +1,120 @@
 import type {MatchData} from "./Dashboard.tsx";
 
-const IngameDashboard: React.FC<{ matchData: MatchData }> = ({ matchData }) => {
+const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
     const {match} = matchData;
 
+    const team1Score = match.match_stats.partyOwnerMatchScoreAllyTeam;
+    const team2Score = match.match_stats.partyOwnerMatchScoreEnemyTeam;
+    const team1Players = match.Players.filter((p) => p.TeamID === "Blue");
+    const team2Players = match.Players.filter((p) => p.TeamID === "Red");
+
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6">
-            <div className="max-w-6xl mx-auto">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-purple-400 mb-2">Live Match Dashboard</h1>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Match ID</h3>
-                            <p className="truncate">{match.MatchID}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Status</h3>
-                            <p className={`font-semibold ${
-                                match.State === 'IN_PROGRESS' ? 'text-green-400' :
-                                    match.State === 'COMPLETED' ? 'text-blue-400' : 'text-yellow-400'
-                            }`}>
-                                {match.State.replace('_', ' ')}
-                            </p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Map</h3>
-                            <p>{match.MapID}</p>
-                        </div>
-                        <div className="bg-gray-800 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Mode</h3>
-                            <p>{match.ModeID}</p>
-                        </div>
+        <div className="min-h-screen bg-zinc-900 text-white p-6 flex flex-col items-center">
+            {/* ── Score Section ───────────────────────────────────────────────────────── */}
+            <div className="mb-6 flex flex-col items-center">
+                <button className="mb-2 px-4 py-1 border border-gray-500 rounded-md text-gray-300 hover:bg-gray-800">
+                    Score
+                </button>
+
+                <div className="flex items-center space-x-40">
+                    <span className="text-3xl font-bold">{team1Score}</span>
+                    <span className="text-3xl font-bold">{team2Score}</span>
+                </div>
+            </div>
+
+            {/* ── Teams Container ───────────────────────────────────────────────────────── */}
+            <div className="flex space-x-10">
+                {/* ── Team 1 Panel ─────────────────────────────────────────────────── */}
+                <div className="w-150 border border-gray-600 rounded-lg bg-zinc-800">
+                    {/* Team Name */}
+                    <div className="py-2 text-center">
+                        <span className="text-lg font-bold">Team 1</span>
+                    </div>
+
+                    {/* Average Rank */}
+                    <div className="px-4 flex items-center justify-center space-x-2 mb-4">
+                        <span className="text-sm text-gray-300">Average Rank: Placeholder 3</span>
+                    </div>
+
+                    {/* Player List */}
+                    <div className="space-y-2 px-2 pb-4">
+                        {team1Players.map((player) => (
+                            <div
+                                key={player.Subject}
+                                className="flex items-center justify-between bg-zinc-700 rounded-lg px-3 py-2 hover:bg-zinc-600"
+                            >
+                                {/* Icon + Name#Tag */}
+                                <div className="flex items-center space-x-3">
+                                    <div
+                                        className="h-8 w-8 bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
+                                        <img
+                                            src={player.AgentIcon}
+                                            alt={player.CharacterID}
+                                            className="h-full w-full object-cover rounded-full"
+                                        />
+                                    </div>
+                                    <span className="truncate">{player.Name}</span>
+                                </div>
+
+                                {/* Agent */}
+                                <span className="text-sm text-gray-300">{player.CharacterID}</span>
+
+                                {/* Rank */}
+                                <span className="text-sm text-gray-300">Placeholder Rank</span>
+
+                                {/* Some Number (e.g., 50) */}
+                                <div className="ml-2">
+                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.PlayerIdentity.AccountLevel}</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Match Stats Section */}
-                <div className="mb-8 bg-gray-800 rounded-lg p-6">
-                    <h2 className="text-2xl font-bold text-purple-400 mb-4">Match Statistics</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Game State</h3>
-                            <p className="text-xl font-semibold">
-                                {match.match_stats.sessionLoopState}
-                            </p>
-                        </div>
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Ally Score</h3>
-                            <p className="text-xl font-semibold text-blue-400">
-                                {match.match_stats.partyOwnerMatchScoreAllyTeam}
-                            </p>
-                        </div>
-                        <div className="bg-gray-700 p-4 rounded-lg">
-                            <h3 className="text-sm text-gray-400">Enemy Score</h3>
-                            <p className="text-xl font-semibold text-red-400">
-                                {match.match_stats.partyOwnerMatchScoreEnemyTeam}
-                            </p>
-                        </div>
+                {/* ── Team 2 Panel ─────────────────────────────────────────────────── */}
+                <div className="w-150 border border-gray-600 rounded-lg bg-zinc-800">
+                    {/* Team Name */}
+                    <div className="py-2 text-center">
+                        <span className="text-lg font-bold">Team 2</span>
                     </div>
 
-                    {/* Players Section */}
-                    <h3 className="text-xl font-semibold mb-3">Players ({match.Players.length})</h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full bg-gray-700 rounded-lg overflow-hidden">
-                            <thead className="bg-gray-600">
-                            <tr>
-                                <th className="px-4 py-3 text-left">Team</th>
-                                <th className="px-4 py-3 text-left">Player</th>
-                                <th className="px-4 py-3 text-left">Level</th>
-                                <th className="px-4 py-3 text-left">Character</th>
-                                <th className="px-4 py-3 text-left">Wins</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {match.Players.map((player) => (
-                                <tr key={player.Subject} className="border-t border-gray-600 hover:bg-gray-600">
-                                    <td className={`px-4 py-3 font-medium ${
-                                        player.TeamID === 'Red' ? 'text-red-400' : 'text-blue-400'
-                                    }`}>
-                                        {player.TeamID}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center">
-                                            <div className="flex-shrink-0 h-8 w-8 bg-gray-500 rounded-full mr-3">
-                                                <img
-                                                    src={player.AgentIcon}
-                                                    alt={player.CharacterID}
-                                                    className="h-8 w-8 rounded-full"
-                                                />
-                                            </div>
-                                            <div>
-                                                <p className="font-medium">{player.Name}</p>
-                                                <p className="text-xs text-gray-400">{player.PlatformType || 'PC'}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">{player.PlayerIdentity.AccountLevel}</td>
-                                    <td className="px-4 py-3">
-                                        {typeof player.CharacterID === 'object'
-                                            ? JSON.stringify(player.CharacterID)
-                                            : player.CharacterID}
-                                    </td>
-                                    <td className="px-4 py-3">{player.SeasonalBadgeInfo.NumberOfWins}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+                    {/* Average Rank */}
+                    <div className="px-4 flex items-center justify-center space-x-2 mb-4">
+                        <span className="text-sm text-gray-300">Average Rank: PlaceHolder</span>
+                    </div>
+
+                    {/* Player List */}
+                    <div className="space-y-2 px-2 pb-4">
+                        {team2Players.map((player) => (
+                            <div
+                                key={player.Subject}
+                                className="flex items-center justify-between bg-zinc-700 rounded-lg px-3 py-2 hover:bg-zinc-600"
+                            >
+                                {/* Icon + Name#Tag */}
+                                <div className="flex items-center space-x-3">
+                                    <div
+                                        className="h-8 w-8 bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
+                                        <img
+                                            src={player.AgentIcon}
+                                            alt={player.CharacterID}
+                                            className="h-full w-full object-cover rounded-full"
+                                        />
+                                    </div>
+                                    <span className="truncate">{player.Name}</span>
+                                </div>
+
+                                {/* Agent */}
+                                <span className="text-sm text-gray-300">{player.CharacterID}</span>
+
+                                {/* Rank */}
+                                <span className="text-sm text-gray-300">Placeholder Rank</span>
+
+                                {/* Some Number (e.g., 50) */}
+                                <div className="ml-2">
+                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.PlayerIdentity.AccountLevel}</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

@@ -11,6 +11,7 @@ class ActiveMatches(SQLModel, table=True):
     match_uuid: str = Field(index=True, unique=True)
     started_at: datetime = Field(default_factory=datetime.now)
     ended_at: Optional[datetime] = Field(default=None, nullable=True)
+    last_update: datetime = Field(default_factory=datetime.now)
 
 
 class UserAuthentication(SQLModel, table=True):
