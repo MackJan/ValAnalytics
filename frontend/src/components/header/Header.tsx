@@ -3,7 +3,7 @@ import "./Header.css";
 
 const Header: React.FC = () => {
   return (
-    <header className="bg-[#113240] text-white p-4 flex justify-between items-center">
+    <header className="bg-indigo-400 text-white p-4 flex justify-between items-center">
       <h1>ValAnalytics</h1>
       <nav className="mx-auto flex max-w-7x1 items-center justify-between text-white">
         <ul className="flex space-x-4">
@@ -13,6 +13,9 @@ const Header: React.FC = () => {
           <li>
             <a href="/login" className="text-sm/6 font-semibold">Login</a>
           </li>
+            <li>
+                <a href="/live" className="text-sm/6 font-semibold">Live</a>
+            </li>
         </ul>
       </nav>
     </header>

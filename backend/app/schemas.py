@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Literal
+from pydantic import BaseModel, HttpUrl, Field
 
 class Token(BaseModel):
     access_token: str
@@ -8,6 +8,42 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str]
+
+class RiotUserGet(BaseModel):
+    riot_id: str
+
+class MatchGet(BaseModel):
+    match_uuid: str
+    game_start_time: int
+    queue: str
+
+class UserNameTag(BaseModel):
+    name: str
+    tag: str
+
+class RiotUser(BaseModel):
+    """
+    Data returned from the Riot API when a user is authenticated.
+    """
+    puuid: str
+    pid: str
+    name: str
+    tag: str
+    region: str
+    game_name: str
+
+class UserRiotAuthentication(BaseModel):
+    """
+    Stores user authentication information, including hashed password and disabled status.
+    """
+    riot_id: str
+    authorization: str
+    entitlement: str
+    client_platform: str
+    client_version: str
+    user_agent: str
+
+    disabled: bool = Field(default=False)
 
 class UserProfileUpdate(BaseModel):
     riot_id: Optional[str] = None
@@ -131,5 +167,18 @@ class MatchRead(MatchBase):
     class Config:
         from_attributes = True
 
+class ActiveMatchCreate(BaseModel):
+    """Schema for creating a new active match"""
+    match_uuid: str
 
+class ActiveMatchRead(BaseModel):
+    """Schema for reading active match data"""
+    id: int
+    match_uuid: str
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    last_update: datetime
 
+class ActiveMatchUpdate(BaseModel):
+    """Schema for updating active match (mainly for ending matches)"""
+    ended_at: Optional[datetime] = None
