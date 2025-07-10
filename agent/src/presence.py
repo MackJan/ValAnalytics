@@ -1,8 +1,6 @@
 import base64
 import json
 import time
-from models import CurrentMatch, CurrentMatchPlayer
-
 
 def decode_presence(private):
     if "{" not in str(private) and private is not None and str(private) != "":

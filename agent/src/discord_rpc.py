@@ -66,11 +66,11 @@ class DiscordRPC:
 
     def set_match_presence(self, match_data:CurrentMatch, start_time:int = None):
         """Set presence based on match data"""
-        if not match_data or not match_data.match_id:
+        if not match_data or not match_data.match_uuid:
             return
 
         try:
-            self.last_update_id = match_data.match_id
+            self.last_update_id = match_data.match_uuid
 
             state = "Solo" if match_data.party_size == 1 else "In a party"
             details = f"{match_data.game_mode} {match_data.party_owner_score}-{match_data.party_owner_enemy_score}"

@@ -3,10 +3,11 @@ import type {MatchData} from "./Dashboard.tsx";
 const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
     const {match} = matchData;
 
-    const team1Score = match.match_stats.partyOwnerMatchScoreAllyTeam;
-    const team2Score = match.match_stats.partyOwnerMatchScoreEnemyTeam;
-    const team1Players = match.Players.filter((p) => p.TeamID === "Blue");
-    const team2Players = match.Players.filter((p) => p.TeamID === "Red");
+    const team1Score = match.party_owner_score;
+    const team2Score = match.party_owner_enemy_score;
+
+    const team1Players = match.players?.filter((p) => p.team_id === "Blue") || [];
+    const team2Players = match.players?.filter((p) => p.team_id === "Red") || [];
 
     return (
         <div className="min-h-screen bg-zinc-900 text-white p-6 flex flex-col items-center">
@@ -38,9 +39,9 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
 
                     {/* Player List */}
                     <div className="space-y-2 px-2 pb-4">
-                        {team1Players.map((player) => (
+                        {team1Players.length > 0 ? team1Players.map((player) => (
                             <div
-                                key={player.Subject}
+                                key={player.subject}
                                 className="flex items-center justify-between bg-zinc-700 rounded-lg px-3 py-2 hover:bg-zinc-600"
                             >
                                 {/* Icon + Name#Tag */}
@@ -48,26 +49,30 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                     <div
                                         className="h-8 w-8 bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
                                         <img
-                                            src={player.AgentIcon}
-                                            alt={player.CharacterID}
+                                            src={player.agent_icon}
+                                            alt={player.character}
                                             className="h-full w-full object-cover rounded-full"
                                         />
                                     </div>
-                                    <span className="truncate">{player.Name}</span>
+                                    <span className="truncate">{player.game_name}</span>
                                 </div>
 
                                 {/* Agent */}
-                                <span className="text-sm text-gray-300">{player.CharacterID}</span>
+                                <span className="text-sm text-gray-300">{player.character}</span>
 
                                 {/* Rank */}
-                                <span className="text-sm text-gray-300">Placeholder Rank</span>
+                                <span className="text-sm text-gray-300">{player.rank}</span>
 
-                                {/* Some Number (e.g., 50) */}
+                                {/* Account Level */}
                                 <div className="ml-2">
-                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.PlayerIdentity.AccountLevel}</span>
+                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.account_level || "N/A"}</span>
                                 </div>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="text-center text-gray-400 py-4">
+                                No players found
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -85,9 +90,9 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
 
                     {/* Player List */}
                     <div className="space-y-2 px-2 pb-4">
-                        {team2Players.map((player) => (
+                        {team2Players.length > 0 ? team2Players.map((player) => (
                             <div
-                                key={player.Subject}
+                                key={player.subject}
                                 className="flex items-center justify-between bg-zinc-700 rounded-lg px-3 py-2 hover:bg-zinc-600"
                             >
                                 {/* Icon + Name#Tag */}
@@ -95,26 +100,30 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                     <div
                                         className="h-8 w-8 bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
                                         <img
-                                            src={player.AgentIcon}
-                                            alt={player.CharacterID}
+                                            src={player.agent_icon}
+                                            alt={player.character}
                                             className="h-full w-full object-cover rounded-full"
                                         />
                                     </div>
-                                    <span className="truncate">{player.Name}</span>
+                                    <span className="truncate">{player.game_name}</span>
                                 </div>
 
                                 {/* Agent */}
-                                <span className="text-sm text-gray-300">{player.CharacterID}</span>
+                                <span className="text-sm text-gray-300">{player.character}</span>
 
                                 {/* Rank */}
-                                <span className="text-sm text-gray-300">Placeholder Rank</span>
+                                <span className="text-sm text-gray-300">{player.rank}</span>
 
-                                {/* Some Number (e.g., 50) */}
+                                {/* Account Level */}
                                 <div className="ml-2">
-                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.PlayerIdentity.AccountLevel}</span>
+                                    <span className="bg-zinc-600 px-2 py-1 rounded text-sm">{player.account_level || "N/A"}</span>
                                 </div>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="text-center text-gray-400 py-4">
+                                No players found
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

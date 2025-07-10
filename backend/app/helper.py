@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from .models import User, UserAuthentication, Match
+from .models import User, UserAuthentication, Match, ActiveMatch, ActiveMatchPlayer
 from .schemas import TokenData, RiotUserGet, UserNameTag, MatchGet, UserRiotAuthentication, RiotUser, MatchCreate
 from .database import engine, get_session
 
@@ -175,3 +175,11 @@ async def get_or_create_match(session: AsyncSession, match: MatchCreate):
     await session.refresh(match_db)
 
     return match_db
+
+
+async def update_active_match_entry(match_uuid:str, match_data:ActiveMatch):
+    with AsyncSession(engine) as session:
+        active_match = ActiveMatch(**match_data.model_dump())
+        session.add(active_match)
+        await session.commit()
+        await session.refresh(active_match)

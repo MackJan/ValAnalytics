@@ -43,7 +43,7 @@ class CurrentMatchPlayer:
 
 @dataclass
 class SingleMatch:
-    match_id: str
+    match_uuid: str
     game_map: str
     game_length: int
     game_start: int
@@ -52,7 +52,7 @@ class SingleMatch:
 
 @dataclass
 class CurrentMatch:
-    match_id: str
+    match_uuid: str
     game_map: str
     game_start: int
     game_mode: str
@@ -64,7 +64,7 @@ class CurrentMatch:
 
 @dataclass
 class BareMatch:
-    match_id: str
+    match_uuid: str
     game_start: int
     queue_id: str
 

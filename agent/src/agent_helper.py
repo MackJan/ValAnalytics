@@ -142,6 +142,3 @@ def post_auth():
 
     response = requests.post(f"{base_url}/users/riot_auth/", json=data)
     print(response.text)
-
-
-

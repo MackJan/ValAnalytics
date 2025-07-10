@@ -21,7 +21,7 @@ const ActiveMatches: React.FC = () => {
             setError(null);
             const matches = await activeMatchApi.getActiveMatches();
             // Filter out ended matches for the active list
-            const ongoingMatches = matches.filter(match => !match.ended_at);
+            const ongoingMatches = matches;
             setActiveMatches(ongoingMatches);
         } catch (err) {
             setError('Failed to fetch active matches');

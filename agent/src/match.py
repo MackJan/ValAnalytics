@@ -23,7 +23,7 @@ class Match:
         match_history = match_history["History"][:last]
         matches = [
             BareMatch(
-                match_id=m["MatchID"],
+                match_uuid=m["MatchID"],
                 game_start=m["GameStartTime"],
                 queue_id=m["QueueID"],
             )
@@ -67,7 +67,7 @@ class Match:
                 )
             )
         return CurrentMatch(
-            match_id=data["MatchID"],
+            match_uuid=data["MatchID"],
             game_map=get_map_name(data["MapID"]),
             game_start=data.get("GameStartMillis", 0),
             game_mode=self.get_current_gamemode(),
@@ -100,7 +100,7 @@ class Match:
         ]
 
         return SingleMatch(
-            match_id=match_info["matchId"],
+            match_uuid=match_info["matchId"],
             game_map=match_info["mapId"],
             game_length=match_info["gameLengthMillis"],
             game_start=match_info["gameStartMillis"],

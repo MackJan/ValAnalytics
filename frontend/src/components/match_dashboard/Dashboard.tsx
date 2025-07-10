@@ -1,158 +1,118 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useState, useRef} from "react";
 import {useParams} from "react-router-dom";
 import IngameDashboard from "./IngameDashboard.tsx";
-import {activeMatchApi} from "../../api.ts";
 
-export interface Friend {
-    Name: string;
-    Subject: string;
-    PlatformType: string;
-    IsOnline: boolean;
-    IsPlaying: boolean;
+// Updated types to match agent models
+export interface CurrentMatchPlayer {
+    subject: string;
+    character: string;
+    team_id: string;
+    game_name: string;
+    account_level: number | null;
+    player_card_id: string | null;
+    player_title_id: string | null;
+    preferred_level_border_id: string | null;
+    agent_icon: string;
+    rank: string;
+    rr: number | null;
+    leaderboard_rank: number | null;
 }
 
-export interface MenuData {
-    Name: string;
-    Rank: string;
-    RR: number;
-    LeaderboardRank: number | null;
-    Friends: Friend[];
-    Season: string | null;
-    InParty: boolean;
-    PartySize: number;
-}
-
-export interface PlayerIdentity {
-    Subject: string;
-    PlayerCardID: string;
-    PlayerTitleID: string;
-    AccountLevel: number;
-    PreferredLevelBorderID: string;
-    Incognito: boolean;
-    HideAccountLevel: boolean;
-}
-
-export interface SeasonalBadgeInfo {
-    SeasonID: string;
-    NumberOfWins: number;
-    WinsByTier: unknown;
-    Rank: number;
-    LeaderboardRank: number;
-}
-
-export interface Player {
-    Subject: string;
-    TeamID: string;
-    CharacterID: string;
-    Name: string;
-    AgentIcon: string;
-    PlayerIdentity: PlayerIdentity;
-    SeasonalBadgeInfo: SeasonalBadgeInfo;
-    IsCoach?: boolean;
-    IsAssociated?: boolean;
-    PlatformType?: string;
-}
-
-export interface MatchMeta {
-    MatchID: string;
-    State: string;
-    MapID: string;
-    ModeID: string;
-    Players: Player[];
-    MatchmakingData: unknown;
-    match_stats: {
-        sessionLoopState: string;
-        partyOwnerMatchScoreAllyTeam: number;
-        partyOwnerMatchScoreEnemyTeam: number;
-        matchMap: string;
-        partySize: number;
-    };
+export interface CurrentMatch {
+    match_id: string;
+    game_map: string;
+    game_start: number;
+    game_mode: string;
+    state: string;
+    party_owner_score: number;
+    party_owner_enemy_score: number;
+    party_size: number;
+    players: CurrentMatchPlayer[];
 }
 
 export interface MatchData {
-    match: MatchMeta;
-    players: Omit<Player, "IsCoach" | "IsAssociated" | "PlatformType">[];
-    matchData?: MatchData;
+    match: CurrentMatch;
 }
 
-// Types for live events (unchanged)
-export type LiveEventType = "match_update" | "stats_update" | "match_end";
-
-export interface MatchUpdate {
-    match: MatchMeta;
-    players: Player[];
-}
-
-export interface StatsUpdate {
-    matchUuid: string;
-    round: number;
-    roundPhase: string;
-    playerStats: Array<{
-        riotId: string;
-        kills: number;
-        deaths: number;
-        assists: number;
-        score: number;
-    }>;
-}
+// Types for live events
+export type LiveEventType = "match_update" | "match_end";
 
 export interface LiveEvent {
     type: LiveEventType;
+    match_id: string;
+    data: CurrentMatch;
     timestamp: string;
-    data: MatchUpdate | StatsUpdate | unknown;
+}
+
+// Updated types for menu data that align with agent models
+export interface MenuData {
+    name: string;
+    rank: string;
+    rr: number | null;
+    leaderboard_rank: number | null;
+    season: string | null;
+    in_party: boolean;
 }
 
 export const LiveDashboard: React.FC = () => {
     const {matchUuid} = useParams<{ matchUuid: string }>();
     const [matchData, setMatchData] = useState<MatchData>();
+    const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
         const uuid = matchUuid || null;
+
+        // Close existing connection if any
+        if (wsRef.current) {
+            wsRef.current.close();
+        }
+
         console.log("Connecting to WebSocket for match:", uuid);
 
         const ws = new WebSocket(
             `${import.meta.env.VITE_WS_URL}/ws/live/${uuid}`
         );
+        wsRef.current = ws;
+
         const connectionId = Math.random().toString(36).substring(2, 10);
 
         ws.onopen = () =>
             console.log(`WebSocket ${connectionId} connected for match ${uuid}`);
         ws.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data) as LiveEvent;
-                console.log("Received event:", data);
+                const eventData = JSON.parse(event.data) as LiveEvent;
+                console.log("Received event:", eventData);
 
-                switch (data.type) {
+                switch (eventData.type) {
                     case "match_update": {
-                        const matchUpdate = data.data as MatchUpdate;
+                        // Parse the data if it's a string, otherwise use it directly
+                        const currentMatch = typeof eventData.data === 'string'
+                            ? JSON.parse(eventData.data) as CurrentMatch
+                            : eventData.data as CurrentMatch;
                         setMatchData({
-                            match: {
-                                ...matchUpdate.match,
-                                match_stats: matchUpdate.match.match_stats || {},
-                            },
-                            players: matchUpdate.players || [],
+                            match: currentMatch
                         });
                         break;
                     }
                     case "match_end":
-                        // Handle match end if you want
+                        setMatchData(undefined);
                         break;
-                    // (You can add a “stats_update” case here if need‐be)
                 }
             } catch (err) {
                 console.error("Error parsing WebSocket message:", err);
             }
         };
-        ws.onerror = (err) =>
+        ws.onerror = (err) => {
             console.error(`WebSocket ${connectionId} error:`, err);
-            if (matchUuid) {
-                activeMatchApi.deleteActiveMatchUUID(matchUuid);
-            }
+        }
         ws.onclose = () =>
             console.log(`WebSocket ${connectionId} closed for match ${uuid}`);
 
         return () => {
-            ws.close();
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
         };
     }, [matchUuid]);
 

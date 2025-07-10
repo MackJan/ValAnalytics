@@ -92,13 +92,13 @@ async def run_agent():
                         if match_uuid and last_update:
                             update_message = {
                                 "type": "match_update",
-                                "match_id": match_uuid,
-                                "data": last_update,
+                                "match_uuid": match_uuid,
+                                "data": last_update,  # Send the object directly, not JSON string
                                 "timestamp": datetime.now(timezone.utc).isoformat()
                             }
 
-                            await ws.send(json.dumps(update_message))
-                            print(f"Sent data in response to request for match {current_match_uuid}")
+                            await ws.send(json.dumps(update_message, cls=EnhancedJSONEncoder))
+                            print(f"Sent data in response to request for match {match_uuid}")
                     except Exception as e:
                         print(f"Error handling request_data: {str(e)}")
                 else:
@@ -150,6 +150,7 @@ async def run_agent():
         elif game_state == "INGAME":
             try:
                 match_data = m.get_current_match_details()
+
                 if match_data is None:
                     print("No match data found, waiting for next update...")
                     await asyncio.sleep(5)
@@ -163,8 +164,8 @@ async def run_agent():
                     rpc.set_match_presence(match_data)
                     last_rpc_update = match_data
 
-                if match_data and match_data.match_id:
-                    current_match_uuid = match_data.match_id
+                if match_data and match_data.match_uuid:
+                    current_match_uuid = match_data.match_uuid
 
                     # Only reconnect if match ID changed or connection is closed
                     if current_match_uuid != match_uuid or ws is None:
@@ -192,16 +193,16 @@ async def run_agent():
 
                     message = {
                         "type": "match_update",
-                        "match_id": match_uuid,
+                        "match_uuid": match_uuid,
                         "data": match_data,
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
 
-                    await ws.send(json.dumps(message))
+                    await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
                     last_update = match_data
 
                     print(f"Sent live data for match {match_uuid}: {message}")
-
+                    print(match_data)
                     # Wait for acknowledgment from the queue
                     try:
                         response = await asyncio.wait_for(message_queue.get(), timeout=1.0)
