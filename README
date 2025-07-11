@@ -1,0 +1,34 @@
+# Valorant Performance Tracker
+
+Valorant Performance Tracker is a multi-component application that collects live match information from the game client and displays it in real time. It currently consists of:
+
+- **Agent** – A Python script that communicates with local Riot APIs to obtain your presence, match details and other information. It sends live updates to the backend via WebSockets and updates Discord Rich Presence.
+- **Backend** – A FastAPI service that stores active match data in a PostgreSQL database and relays live updates to connected front‑end clients through WebSockets.
+- **Frontend** – A React + TypeScript web application providing dashboards for ongoing matches.
+
+The services can be run together using the provided Docker Compose setup. When the agent is running while you play Valorant, the backend receives continuous match updates which are displayed on the dashboard and used for Discord RPC.
+
+## Running the stack
+
+Use Docker Compose to start the database, backend and frontend:
+
+```bash
+docker compose -f infra/docker-compose.yml up
+```
+
+Run the agent locally (requires Python 3.9 and `pip install -r agent/requirements.txt`). It will connect to the backend at `http://localhost:8000` and start updating Discord Rich Presence.
+
+## Features
+
+- Tracks the current match and party information directly from the Valorant client.
+- Updates Discord Rich Presence with map, mode, score and party size.
+- Stores active match data in PostgreSQL via FastAPI.
+- Live match dashboard showing team scores and players (WIP).
+
+## Screenshots
+
+Place screenshots of the Discord Rich Presence, the list of active matches and the in‑game dashboard here.
+
+| Discord RPC | Active Matches | Live Dashboard |
+| --- | --- | --- |
+| ![Discord RPC](docs/images/discord_rpc.png) | ![Active Matches](docs/images/active_matches.png) | ![Match Dashboard](docs/images/match_dashboard.png) |
