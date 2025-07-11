@@ -15,12 +15,16 @@ from .schemas import (
     RiotUserGet, MatchGet, Token, UserRiotAuthentication, UserNameTag, UserDB,
     ActiveMatchCreate, ActiveMatchRead, ActiveMatchUpdate
 )
-from .models import User, Match, MatchTeam, MatchPlayer, UserAuthentication, ActiveMatches
+from .models import User, Match, MatchTeam, MatchPlayer, UserAuthentication, ActiveMatch
 from .helper import (
     get_session, get_password_hash, authenticate_user,
     create_access_token, get_current_active_user, get_current_user, get_authentication, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from .helper import get_match_history, get_match_history_from_name_tag, get_riot_authentication, get_or_create_user
+from sqlmodel.ext.asyncio.session import AsyncSession
+from .database import engine
+from .models import ActiveMatchPlayer
+
 
 router = APIRouter()
 
@@ -43,7 +47,7 @@ async def get_history(
         print(f"#### {matches}")
         for m in matches["History"]:
             match = MatchGet(
-                match_uuid=m["MatchID"],
+                match_id=m["MatchID"],
                 game_start_time=m["GameStartTime"],
                 queue=m["QueueID"],
             )
@@ -89,7 +93,7 @@ async def get_match_history_api(
         print(f"#### {matches}")
         for m in matches["History"]:
             match = MatchGet(
-                match_uuid=m["MatchID"],
+                match_id=m["MatchID"],
                 game_start_time=m["GameStartTime"],
                 queue=m["QueueID"],
             )
@@ -293,32 +297,139 @@ async def create_player(
 
 
 # Active Match Endpoints
-@router.post("/active_matches/", response_model=ActiveMatchRead, status_code=status.HTTP_201_CREATED)
+@router.post("/active_matches/", response_model=None, status_code=status.HTTP_201_CREATED)
 async def create_active_match(active_match: ActiveMatchCreate):
+    from .models import ActiveMatchPlayer
+    from sqlalchemy.orm import selectinload
+
     async with AsyncSession(engine) as session:
-        active_match_db = ActiveMatches(**active_match.model_dump())
+        # Check if a match with this UUID already exists
+        existing_match = await session.exec(
+            select(ActiveMatch).where(ActiveMatch.match_uuid == active_match.match_uuid)
+        )
+        existing_match = existing_match.first()
+
+        if existing_match:
+            # Delete the existing match (cascade will handle players)
+            await session.delete(existing_match)
+            await session.commit()
+
+        # Create new active match (exclude players from the main model)
+        match_data = active_match.model_dump(exclude={'players'})
+        active_match_db = ActiveMatch(**match_data)
         session.add(active_match_db)
+        await session.commit()  # Use commit instead of flush to ensure ID is available
+        await session.refresh(active_match_db)
+
+        # Create players if provided
+        if active_match.players:
+            for player_data in active_match.players:
+                player = ActiveMatchPlayer(
+                    subject=player_data.subject,
+                    match_id=active_match_db.id,
+                    character=player_data.character,
+                    team_id=player_data.team_id,
+                    game_name=player_data.game_name,
+                    account_level=player_data.account_level,
+                    player_card_id=player_data.player_card_id,
+                    player_title_id=player_data.player_title_id,
+                    preferred_level_border_id=player_data.preferred_level_border_id,
+                    agent_icon=player_data.agent_icon,
+                    rank=player_data.rank,
+                    rr=player_data.rr,
+                    leaderboard_rank=player_data.leaderboard_rank
+                )
+                session.add(player)
+
+            await session.commit()
+
+
+
+async def create_active_match_with_players(match_uuid: str, players_data: list = None):
+    """Create an active match with initial player data"""
+
+
+    async with AsyncSession(engine) as session:
+        # Check if a match with this UUID already exists
+        existing_match = await session.exec(
+            select(ActiveMatch).where(ActiveMatch.match_uuid == match_uuid)
+        )
+        existing_match = existing_match.first()
+
+        if existing_match:
+            # If match exists and hasn't ended, return it
+            if existing_match.ended_at is None:
+                return existing_match
+            else:
+                # If match exists but has ended, delete it
+                await session.delete(existing_match)
+                await session.flush()
+
+        # Create new active match
+        active_match_db = ActiveMatch(match_uuid=match_uuid)
+        session.add(active_match_db)
+        await session.flush()  # Get the ID
+        await session.refresh(active_match_db)
+
+        # Add players if provided
+        if players_data:
+            for player_data in players_data:
+                player = ActiveMatchPlayer(
+                    subject=player_data.get("subject"),
+                    match_id=active_match_db.id,
+                    character=player_data.get("character"),
+                    team_id=player_data.get("team_id"),
+                    game_name=player_data.get("game_name"),
+                    account_level=player_data.get("account_level"),
+                    player_card_id=player_data.get("player_card_id"),
+                    player_title_id=player_data.get("player_title_id"),
+                    preferred_level_border_id=player_data.get("preferred_level_border_id"),
+                    agent_icon=player_data.get("agent_icon"),
+                    rank=player_data.get("rank", "unranked"),
+                    rr=player_data.get("rr"),
+                    leaderboard_rank=player_data.get("leaderboard_rank")
+                )
+                session.add(player)
+
         await session.commit()
         await session.refresh(active_match_db)
-    return active_match_db
+        return active_match_db
 
 
 @router.get("/active_matches/", response_model=List[ActiveMatchRead])
 async def list_active_matches(
         limit: int = 100,
-        order_by: Literal["started_at", "ended_at"] = "started_at"
 ):
     async with AsyncSession(engine) as session:
+        # Use selectinload to eagerly load the players relationship
+        from sqlmodel import select
+        from sqlalchemy.orm import selectinload
+
         result = await session.exec(
-            select(ActiveMatches).order_by(getattr(ActiveMatches, order_by)).limit(limit)
+            select(ActiveMatch)
+            .options(selectinload(ActiveMatch.players))
+            .order_by(getattr(ActiveMatch, 'last_updated').desc())
+            .limit(limit)
         )
-    return result.all()
+        active_matches = result.all()
+
+        # Convert to list to ensure we have the data before session closes
+        return list(active_matches)
 
 
 @router.get("/active_matches/{active_match_id}/", response_model=ActiveMatchRead)
 async def get_active_match(active_match_id: int):
     async with AsyncSession(engine) as session:
-        active_match = await session.get(ActiveMatches, active_match_id)
+        from sqlalchemy.orm import selectinload
+
+        # Use selectinload to eagerly load the players relationship
+        result = await session.exec(
+            select(ActiveMatch)
+            .options(selectinload(ActiveMatch.players))
+            .where(ActiveMatch.id == active_match_id)
+        )
+        active_match = result.first()
+
         if not active_match:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active match not found")
     return active_match
@@ -330,7 +441,7 @@ async def update_active_match(
         active_match: ActiveMatchUpdate
 ):
     async with AsyncSession(engine) as session:
-        db_active_match = await session.get(ActiveMatches, active_match_id)
+        db_active_match = await session.get(ActiveMatch, active_match_id)
         if not db_active_match:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active match not found")
         for field, value in active_match.model_dump(exclude_unset=True).items():
@@ -344,18 +455,18 @@ async def update_active_match(
 @router.delete("/active_matches/{active_match_id}/", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an active match by ID")
 async def delete_active_match(active_match_id: int):
     async with AsyncSession(engine) as session:
-        active_match = await session.get(ActiveMatches, active_match_id)
+        active_match = await session.get(ActiveMatch, active_match_id)
         if not active_match:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active match not found")
         await session.delete(active_match)
         await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@router.delete("/active_matches/uuid/{match_uuid}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an active match by UUID")
-async def delete_active_match_by_uuid(match_uuid: str):
+@router.delete("/active_matches/uuid/{match_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an active match by UUID")
+async def delete_active_match_by_uuid(match_id: str):
     async with AsyncSession(engine) as session:
         active_match = await session.exec(
-            select(ActiveMatches).where(ActiveMatches.match_uuid == match_uuid)
+            select(ActiveMatch).where(ActiveMatch.match_uuid == match_id)
         )
         active_match = active_match.one_or_none()
         if not active_match:

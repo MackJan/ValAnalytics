@@ -2,7 +2,7 @@ import websockets
 import json
 import asyncio
 import datetime
-from user import User
+from user import Users
 from match import Match
 import requests
 from datetime import datetime
@@ -29,7 +29,7 @@ async def push_match_detail(match: dict):
 
 
 def post_user_and_match():
-    user = User()
+    user = Users()
     user_data = {
         "riot_id": user.user["puuid"],
         "name": user.user["game_name"],
@@ -142,22 +142,3 @@ def post_auth():
 
     response = requests.post(f"{base_url}/users/riot_auth/", json=data)
     print(response.text)
-
-
-def post_current_match():
-    m = Match()
-    match = m.get_current_match()
-    if not match:
-        print("No current match found.")
-        return
-
-    match_data = {
-        "match_uuid": match["matchInfo"]["matchId"],
-        "map_name": match["matchInfo"]["mapId"],
-        "queue": match["matchInfo"]["queueID"],
-        "started_at": str(datetime.fromtimestamp(match["matchInfo"]["gameStartMillis"] / 1000)),
-        "ended_at": str(datetime.fromtimestamp(
-            (match["matchInfo"]["gameLengthMillis"] + match["matchInfo"]["gameStartMillis"]) / 1000))
-    }
-
-    push_match_detail(match_data)

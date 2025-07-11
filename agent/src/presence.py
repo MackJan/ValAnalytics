@@ -2,7 +2,6 @@ import base64
 import json
 import time
 
-
 def decode_presence(private):
     if "{" not in str(private) and private is not None and str(private) != "":
         dct = json.loads(base64.b64decode(str(private)).decode("utf-8"))

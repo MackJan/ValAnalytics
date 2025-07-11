@@ -4,6 +4,7 @@ import requests
 from os import path
 import json
 import time
+from typing import Optional, Dict, Any, Tuple, List
 
 
 class Requests:

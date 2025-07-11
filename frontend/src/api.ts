@@ -23,7 +23,6 @@ export interface ActiveMatch {
     id: number;
     match_uuid: string;
     started_at: string;
-    ended_at?: string;
 }
 
 export interface ActiveMatchCreate {

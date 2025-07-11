@@ -26,7 +26,9 @@ def get_map_name(map_id: str) -> str:
         "/Game/Maps/Port/Port": "Icebox",
         "/Game/Maps/Jam/Jam": "Lotus",
         "/Game/Maps/Pitt/Pitt": "Pearl",
-        "/Game/Maps/Bonsai/Bonsai": "Split"
+        "/Game/Maps/Bonsai/Bonsai": "Split",
+        "/Game/Maps/Rook/Rook": "Corrode",
+        "/Game/Maps/Infinity/Infinity": "Abyss"
     }
     return maps.get(map_id, map_id)
 

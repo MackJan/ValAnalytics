@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .database import engine
-from .models import ActiveMatches
+from .models import ActiveMatch
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,8 @@ class MatchCleanupService:
                 cutoff_time = datetime.now() - timedelta(seconds=self.match_timeout)
 
                 # Find active matches that haven't been updated recently
-                query = select(ActiveMatches).where(
-                    ActiveMatches.ended_at.is_(None),  # Only active matches
-                    ActiveMatches.last_update < cutoff_time  # Haven't been updated recently
+                query = select(ActiveMatch).where(
+                    ActiveMatch.last_updated < cutoff_time  # Haven't been updated recently
                 )
 
                 result = await session.exec(query)
@@ -93,15 +92,15 @@ class MatchCleanupService:
         """Update the last_update timestamp for a specific match"""
         try:
             async with AsyncSession(engine) as session:
-                query = select(ActiveMatches).where(
-                    ActiveMatches.match_uuid == match_uuid,
-                    ActiveMatches.ended_at.is_(None)
+                query = select(ActiveMatch).where(
+                    ActiveMatch.match_uuid == match_uuid,
+                    ActiveMatch.ended_at.is_(None)
                 )
                 result = await session.exec(query)
                 match = result.first()
 
                 if match:
-                    match.last_update = datetime.now()
+                    match.last_updated = datetime.now()
                     session.add(match)
                     await session.commit()
                     logger.debug(f"Updated activity timestamp for match {match_uuid}")

@@ -1,132 +1,148 @@
 from agent.src import req
-#from src.presence import Presence
-import user
+from user import Users
 import urllib3
 import logging
 from presence import Presence
-from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_multiple_names_from_puuid, get_agent_icon
-
+from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_multiple_names_from_puuid, \
+    get_agent_icon
+from models import *
+from constants import *
 urllib3.disable_warnings()
 
 
 class Match:
     def __init__(self):
         self.requests = req.Requests()
-        self.user = user.User()
+        self.user = Users()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.presence = Presence(self.requests)
 
-    def get_match_history(self, last:int = 10):
-        match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user['puuid']}", "get")
+    def get_own_match_history(self, last: int = 10) -> MatchHistory:
+        match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user.puuid}", "get")
         match_history = match_history["History"][:last]
+        matches = [
+            BareMatch(
+                match_uuid=m["MatchID"],
+                game_start=m["GameStartTime"],
+                queue_id=m["QueueID"],
+            )
+            for m in match_history
+        ]
 
-        return match_history
+        return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
-    def get_current_match_details(self) -> {}:
+    def get_current_match_details(self) -> Optional[CurrentMatch]:
         match_id = self.get_current_match_id()
         if not match_id:
             self.logger.debug("No current match found.")
-            return {}
-        print(f"Current match ID: {match_id}")
+            return None
 
         presence = self.presence.get_private_presence(self.presence.get_presence())
-
         data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
-        print(f"Raw match data: {data}")
-        presence_keys = {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam", "partyOwnerMatchScoreEnemyTeam"}
+
         match_stats = {
             k: v
             for k, v in presence.items()
-            if k in presence_keys
+            if k in {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam", "partyOwnerMatchScoreEnemyTeam"}
         }
 
-        match_keys = {"MatchID", "State", "MapID", "Players", "MatchmakingData"}
-
-        clean_match = {
-            k: v
-            for k, v in data.items()
-            if k in match_keys
-        }
-        clean_match["match_stats"] = match_stats
-        clean_match["MapID"] = get_map_name(clean_match["MapID"])
-        clean_match["ModeID"] = data["ProvisioningFlow"]
-
-        player_keys = {"Subject", "TeamID", "CharacterID", "PlayerIdentity", "SeasonalBadgeInfo"}
-        puuids = []
-        for p in data["Players"]:
-            puuids.append(p["Subject"])
-
+        players = []
+        puuids = [p["Subject"] for p in data["Players"]]
         names = get_multiple_names_from_puuid(puuids, self.requests)
+        print(data["Players"])
+        for p in data["Players"]:
+            rank = self.get_rank_by_uuid(p["Subject"])
 
-        for x in range(len(clean_match["Players"])):
-            clean_match["Players"][x]["Name"] = names.get(clean_match["Players"][x]["Subject"], "Unknown Player")
-            clean_match["Players"][x]["AgentIcon"] = get_agent_icon(clean_match["Players"][x]["CharacterID"])
-            clean_match["Players"][x]["CharacterID"] = get_agent_name(clean_match["Players"][x]["CharacterID"])
+            players.append(
+                CurrentMatchPlayer(
+                    subject=p["Subject"],
+                    character=get_agent_name(p["CharacterID"]),
+                    team_id=p["TeamID"],
+                    game_name=names.get(p["Subject"], "Unknown Player"),
+                    account_level=p["PlayerIdentity"].get("AccountLevel"),
+                    player_card_id=p["PlayerIdentity"].get("PlayerCardID"),
+                    player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
+                    preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
+                    agent_icon=get_agent_icon(p["CharacterID"]),
+                    rank=rank["rank"],
+                    rr=rank["rr"],
 
+                )
+            )
+        return CurrentMatch(
+            match_uuid=data["MatchID"],
+            game_map=get_map_name(data["MapID"]),
+            game_start=data.get("GameStartMillis", 0),
+            game_mode=self.get_current_gamemode(),
+            state=data["State"],
+            party_owner_score=match_stats.get("partyOwnerMatchScoreAllyTeam", 0),
+            party_owner_enemy_score=match_stats.get("partyOwnerMatchScoreEnemyTeam", 0),
+            party_size=match_stats.get("partySize", 1),
+            players=players,
+        )
 
-        #clean_players = []
-        #for p in data["Players"]:
-        #    slim = {k: p[k] for k in player_keys if k in p}
-        #    slim["CharacterID"] = get_agent_name(slim["CharacterID"])
-        #    slim["Name"] = names.get(p["Subject"], "Unknown Player")
+    def get_match_details(self, match_id: str) -> SingleMatch:
+        match = self.requests.fetch("pd", f"/match-details/v1/matches/{match_id}", "get")
+        match_info = match["matchInfo"]
+        players = [
+            Player(
+                character=p["characterId"],
+                subject=p["subject"],
+                tag_line=p["tagLine"],
+                party_id=p["partyId"],
+                team_id=p["teamId"],
+                game_name=p["gameName"],
+                kills=p.get("stats", {}).get("kills", 0),
+                deaths=p.get("stats", {}).get("deaths", 0),
+                assists=p.get("stats", {}).get("assists", 0),
+                score=p.get("stats", {}).get("score", 0),
+                rank=self.get_rank_by_id(p["competitiveTier"]),
 
-        #    clean_players.append(slim)
+            )
+            for p in match["players"]
+        ]
 
-        cleaned_info = {
-            "match": clean_match,
-            #"players": clean_players
-        }
+        return SingleMatch(
+            match_uuid=match_info["matchId"],
+            game_map=match_info["mapId"],
+            game_length=match_info["gameLengthMillis"],
+            game_start=match_info["gameStartMillis"],
+            queue_id=match_info["queueID"],
+            players=players,
+        )
 
-        print(f"Cleaned match details: {cleaned_info}")
-        return cleaned_info
-
-
-    def get_match_details(self, match_id: str) -> {}:
-        match = self.requests.fetch("pd",f"/match-details/v1/matches/{match_id}","get")
-        match_keys = {"matchId","mapId","queueID","gameStartMillis","gameLengthMillis","players"}
-
-        clean_match = {
-            k: v
-            for k,v in match["matchInfo"].items()
-            if k in match_keys
-        }
-
-        wanted_player_keys = {"subject", "gameName","tagLine","partyId","characterId","teamId"}
-        clean_players = []
-
-        for p in match["players"]:
-            slim = {k:p[k] for k in wanted_player_keys}
-
-            stats = p.get("stats",{})
-            slim["kills"] = stats.get("kills",0)
-            slim["deaths"] = stats.get("deaths",0)
-            slim["assists"] = stats.get("assists",0)
-            slim["score"] = stats.get("score",0)
-
-            clean_players.append(slim)
-
-        cleaned = {
-            "matchInfo": clean_match,
-            "players": clean_players
-        }
-
-        print(f"Cleaned match details: {cleaned}")
-        return cleaned
-
-
-    def get_current_match(self) -> {}:
-        match_id = self.get_current_match_id()
-        if not match_id:
-            self.logger.debug("No current match found.")
-            return {}
-        print(f"Current match ID: {match_id}")
-        return self.get_match_details(match_id)
 
     def get_current_match_id(self) -> str:
-        match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user["puuid"]}", "get")
+        match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user.puuid}", "get")
         print(match)
         if match and "MatchID" in match:
             return match["MatchID"]
 
         raise Exception("Could not find current match ID. Make sure you are in a match.")
+
+    def get_current_gamemode(self):
+        presence_data_raw = self.presence.get_private_presence(self.presence.get_presence())
+        gamemode = gamemodes.get(presence_data_raw["queueId"])
+        return gamemode
+
+    def get_rank_by_id(self, rank_id: int):
+        return ranks.get(rank_id, "Unranked")
+
+    def get_rank_by_uuid(self, uuid: str) -> dict:
+        try:
+            data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
+            if not data:
+                return {"rank": "Unranked", "rr": None}
+            latest_rank = data["LatestCompetitiveUpdate"]["TierAfterUpdate"]
+            latest_rr = data["LatestCompetitiveUpdate"]["RankedRatingAfterUpdate"]
+
+            ret = {
+                "rank": self.get_rank_by_id(latest_rank).get("tierName", "Unranked"),
+                "rr": latest_rr,
+            }
+            print(ret)
+            return ret
+
+        except Exception:
+            return {"rank": "Unranked", "rr": None}

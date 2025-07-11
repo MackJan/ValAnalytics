@@ -1,6 +1,7 @@
 from pypresence import Presence
 import time
 import nest_asyncio
+from models import *
 
 client_id = "1389311125681606666"
 nest_asyncio.apply()
@@ -11,6 +12,7 @@ class DiscordRPC:
         self.presence = None
         self.connected = False
         self.connect()
+        self.last_update_id = None
 
     def connect(self):
         """Connect to Discord RPC"""
@@ -62,25 +64,27 @@ class DiscordRPC:
         except Exception as e:
             print(f"Failed to update Discord presence: {e}")
 
-    def set_match_presence(self, match_data):
+    def set_match_presence(self, match_data:CurrentMatch, start_time:int = None):
         """Set presence based on match data"""
-        if not match_data or not match_data.get("match", {}).get("MatchID"):
+        if not match_data or not match_data.match_uuid:
             return
 
-        data = match_data["match"]
-
         try:
-            state = "Playing solo" if data["match_stats"]["partySize"] == 1 else "Playing in a party"
-            details = data["ModeID"]
+            self.last_update_id = match_data.match_uuid
 
-            self.set_presence(
+            state = "Solo" if match_data.party_size == 1 else "In a party"
+            details = f"{match_data.game_mode} {match_data.party_owner_score}-{match_data.party_owner_enemy_score}"
+
+            self.presence.update(
                 state=state,
                 details=details,
                 start=int(time.time()),
-                large_image=data["MapID"].lower(),
-                large_text=data["MapID"],
-                small_image=data["Players"][0]["CharacterID"].lower(),
-                small_text=data["Players"][0]["CharacterID"]
+                large_image=match_data.game_map.lower(),
+                large_text=match_data.game_map,
+                small_image=match_data.players[0].character.lower() if match_data.players else None,
+                small_text=match_data.players[0].character if match_data.players else None,
+                party_size=[match_data.party_size,5],
+                instance=True,
             )
         except Exception as e:
             print(f"Failed to set match presence: {e}")
