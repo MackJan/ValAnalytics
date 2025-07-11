@@ -320,21 +320,93 @@ async def create_active_match(active_match: ActiveMatchCreate):
     return active_match_db
 
 
+async def create_active_match_with_players(match_uuid: str, players_data: list = None):
+    """Create an active match with initial player data"""
+    from sqlmodel.ext.asyncio.session import AsyncSession
+    from .database import engine
+    from .models import ActiveMatchPlayer
+
+    async with AsyncSession(engine) as session:
+        # Check if a match with this UUID already exists
+        existing_match = await session.exec(
+            select(ActiveMatch).where(ActiveMatch.match_uuid == match_uuid)
+        )
+        existing_match = existing_match.first()
+
+        if existing_match:
+            # If match exists and hasn't ended, return it
+            if existing_match.ended_at is None:
+                return existing_match
+            else:
+                # If match exists but has ended, delete it
+                await session.delete(existing_match)
+                await session.flush()
+
+        # Create new active match
+        active_match_db = ActiveMatch(match_uuid=match_uuid)
+        session.add(active_match_db)
+        await session.flush()  # Get the ID
+        await session.refresh(active_match_db)
+
+        # Add players if provided
+        if players_data:
+            for player_data in players_data:
+                player = ActiveMatchPlayer(
+                    subject=player_data.get("subject"),
+                    match_id=active_match_db.id,
+                    character=player_data.get("character"),
+                    team_id=player_data.get("team_id"),
+                    game_name=player_data.get("game_name"),
+                    account_level=player_data.get("account_level"),
+                    player_card_id=player_data.get("player_card_id"),
+                    player_title_id=player_data.get("player_title_id"),
+                    preferred_level_border_id=player_data.get("preferred_level_border_id"),
+                    agent_icon=player_data.get("agent_icon"),
+                    rank=player_data.get("rank", "unranked"),
+                    rr=player_data.get("rr"),
+                    leaderboard_rank=player_data.get("leaderboard_rank")
+                )
+                session.add(player)
+
+        await session.commit()
+        await session.refresh(active_match_db)
+        return active_match_db
+
+
 @router.get("/active_matches/", response_model=List[ActiveMatchRead])
 async def list_active_matches(
         limit: int = 100,
 ):
     async with AsyncSession(engine) as session:
+        # Use selectinload to eagerly load the players relationship
+        from sqlmodel import select
+        from sqlalchemy.orm import selectinload
+
         result = await session.exec(
-            select(ActiveMatch).order_by(getattr(ActiveMatch, 'game_start')).limit(limit)
+            select(ActiveMatch)
+            .options(selectinload(ActiveMatch.players))
+            .order_by(getattr(ActiveMatch, 'last_updated').desc())
+            .limit(limit)
         )
-    return result.all()
+        active_matches = result.all()
+
+        # Convert to list to ensure we have the data before session closes
+        return list(active_matches)
 
 
 @router.get("/active_matches/{active_match_id}/", response_model=ActiveMatchRead)
 async def get_active_match(active_match_id: int):
     async with AsyncSession(engine) as session:
-        active_match = await session.get(ActiveMatch, active_match_id)
+        from sqlalchemy.orm import selectinload
+
+        # Use selectinload to eagerly load the players relationship
+        result = await session.exec(
+            select(ActiveMatch)
+            .options(selectinload(ActiveMatch.players))
+            .where(ActiveMatch.id == active_match_id)
+        )
+        active_match = result.first()
+
         if not active_match:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active match not found")
     return active_match

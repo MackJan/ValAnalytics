@@ -18,23 +18,47 @@ m = Match()
 p = Presence(req)
 rpc = DiscordRPC()
 
-async def create_active_match(match_uuid):
-    """Create an active match entry in the backend"""
+async def create_active_match_with_players(match_uuid, match_data):
+    """Create an active match entry with initial player data in the backend"""
     try:
+        # Extract player data from match_data
+        players_data = []
+        if hasattr(match_data, 'players') and match_data.players:
+            players_data = [
+                {
+                    "subject": player.subject,
+                    "character": player.character,
+                    "team_id": player.team_id,
+                    "game_name": player.game_name,
+                    "account_level": player.account_level,
+                    "player_card_id": player.player_card_id,
+                    "player_title_id": player.player_title_id,
+                    "preferred_level_border_id": player.preferred_level_border_id,
+                    "agent_icon": player.agent_icon,
+                    "rank": player.rank,
+                    "rr": player.rr,
+                    "leaderboard_rank": player.leaderboard_rank
+                }
+                for player in match_data.players
+            ]
+
+        # Create the match entry via HTTP API call
         payload = {"match_uuid": match_uuid}
         response = requests.post(f"{base_url}/active_matches/", json=payload)
-        if response.status_code == 201:
+
+        if response.status_code in [200, 201]:
+            active_match = response.json()
             print(f"Successfully created active match entry for {match_uuid}")
-            return True
-        elif response.status_code == 400:
-            # Match might already exist, that's okay
-            print(f"Active match {match_uuid} already exists")
+
+            # Store players data to be sent via WebSocket
+            # We'll send the complete match data including players via WebSocket
+            # The WebSocket handler will process the initial player data
             return True
         else:
             print(f"Failed to create active match: {response.status_code} - {response.text}")
             return False
     except Exception as e:
-        print(f"Error creating active match: {str(e)}")
+        print(f"Error creating active match with players: {str(e)}")
         return False
 
 async def end_active_match(match_uuid):
@@ -57,6 +81,23 @@ async def end_active_match(match_uuid):
         return False
     except Exception as e:
         print(f"Error ending active match: {str(e)}")
+        return False
+
+async def send_initial_match_data(ws, match_uuid, match_data):
+    """Send initial match data to populate the database"""
+    try:
+        message = {
+            "type": "match_update",
+            "match_uuid": match_uuid,
+            "data": match_data,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
+        print(f"Sent initial match data for {match_uuid}")
+        return True
+    except Exception as e:
+        print(f"Error sending initial match data: {str(e)}")
         return False
 
 async def run_agent():
@@ -182,7 +223,22 @@ async def run_agent():
                         asyncio.create_task(handle_ws_messages(ws))
 
                         # Create an active match entry in the backend
-                        await create_active_match(match_uuid)
+                        await create_active_match_with_players(match_uuid, match_data)
+
+                        # Send initial match data to populate the database
+                        await send_initial_match_data(ws, match_uuid, match_data)
+                        last_update = match_data
+
+                        # Wait for acknowledgment of initial data
+                        try:
+                            response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
+                            print(f"Received acknowledgment for initial data: {response}")
+                        except asyncio.TimeoutError:
+                            print("No acknowledgment received for initial data")
+
+                        # Skip the regular update this time since we just sent initial data
+                        await asyncio.sleep(10)
+                        continue
 
                     if last_update is not None:
                         if not dicts_differ(match_data, last_update):

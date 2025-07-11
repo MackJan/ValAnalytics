@@ -17,7 +17,7 @@ class ActiveMatch(SQLModel, table=True):
     party_size: int = Field(description="Size of the party", nullable=True)
     players: Optional[List["ActiveMatchPlayer"]] = Relationship(
         back_populates="match",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan", "lazy": "selectin"}
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "lazy": "select"}
     )
 
 class ActiveMatchPlayer(SQLModel, table=True):
