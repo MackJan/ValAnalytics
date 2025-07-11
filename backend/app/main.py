@@ -34,22 +34,29 @@ async def lifespan(app: FastAPI):
 
 def update_model_from_json(model_instance, json_data: dict):
     """Update a SQLModel instance with JSON data, only updating valid fields"""
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    model_fields = set(model_instance.__fields__.keys())
+    # Use model_fields for Pydantic v2 compatibility
+    model_fields = set(model_instance.model_fields.keys())
 
     for field, value in json_data.items():
         if field in model_fields and hasattr(model_instance, field):
             # Handle datetime conversion for game_start field
             if field == "game_start" and isinstance(value, (int, float)):
-                # Convert milliseconds timestamp to datetime
-                value = datetime.fromtimestamp(value / 1000)
+                # Check if timestamp is in milliseconds (> year 2001 in seconds)
+                if value > 1000000000000:  # milliseconds timestamp
+                    value = datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+                else:  # seconds timestamp
+                    value = datetime.fromtimestamp(value, tz=timezone.utc)
+
+                # Convert to timezone-naive datetime for PostgreSQL
+                value = value.replace(tzinfo=None)
 
             setattr(model_instance, field, value)
 
-    # Always update the last_updated field
+    # Always update the last_updated field (timezone-naive)
     if hasattr(model_instance, 'last_updated'):
-        model_instance.last_updated = datetime.now()
+        model_instance.last_updated = datetime.now(timezone.utc).replace(tzinfo=None)
 
     return model_instance
 
@@ -209,7 +216,7 @@ def create_app() -> FastAPI:
                     print(f"Sent initial match data to frontend for {match_uuid}")
                 else:
                     # Request data from agent if no match found
-                    await manager.request_data(match_uuid)
+                    #await manager.request_data(match_uuid)
                     print(f"Requested data from agent for {match_uuid}")
 
             # Keep connection alive and wait for disconnect

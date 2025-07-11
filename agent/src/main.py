@@ -1,3 +1,4 @@
+import datetime
 import time
 
 from agent.src.models import EnhancedJSONEncoder
@@ -8,6 +9,7 @@ from discord_rpc import DiscordRPC
 import asyncio
 from constants import *
 import dataclasses
+from models import CurrentMatch, CurrentMatchPlayer
 
 req = Requests()
 
@@ -18,47 +20,57 @@ m = Match()
 p = Presence(req)
 rpc = DiscordRPC()
 
-async def create_active_match_with_players(match_uuid, match_data):
-    """Create an active match entry with initial player data in the backend"""
-    try:
-        # Extract player data from match_data
-        players_data = []
-        if hasattr(match_data, 'players') and match_data.players:
-            players_data = [
-                {
-                    "subject": player.subject,
-                    "character": player.character,
-                    "team_id": player.team_id,
-                    "game_name": player.game_name,
-                    "account_level": player.account_level,
-                    "player_card_id": player.player_card_id,
-                    "player_title_id": player.player_title_id,
-                    "preferred_level_border_id": player.preferred_level_border_id,
-                    "agent_icon": player.agent_icon,
-                    "rank": player.rank,
-                    "rr": player.rr,
-                    "leaderboard_rank": player.leaderboard_rank
-                }
-                for player in match_data.players
-            ]
 
-        # Create the match entry via HTTP API call
-        payload = {"match_uuid": match_uuid}
-        response = requests.post(f"{base_url}/active_matches/", json=payload)
+async def create_active_match_via_api(match_data: CurrentMatch):
+    """
+    Create an active match with players via API call
+    """
+    # Prepare the payload for the API
 
-        if response.status_code in [200, 201]:
-            active_match = response.json()
-            print(f"Successfully created active match entry for {match_uuid}")
+    game_start_dt = datetime.fromtimestamp(match_data.game_start, tz=timezone.utc) if match_data.game_start else None
 
-            # Store players data to be sent via WebSocket
-            # We'll send the complete match data including players via WebSocket
-            # The WebSocket handler will process the initial player data
-            return True
-        else:
-            print(f"Failed to create active match: {response.status_code} - {response.text}")
-            return False
-    except Exception as e:
-        print(f"Error creating active match with players: {str(e)}")
+
+    payload = {
+        "match_uuid": match_data.match_uuid,
+        "game_map": match_data.game_map,
+        "game_start": game_start_dt.isoformat() if game_start_dt else None,
+        "game_mode": match_data.game_mode,
+        "state": match_data.state,
+        "party_owner_score": match_data.party_owner_score,
+        "party_owner_enemy_score": match_data.party_owner_enemy_score,
+        "party_size": match_data.party_size,
+        "players": []
+    }
+
+    # Process players data
+    if match_data.players:
+        for player in match_data.players:
+            player_data = {
+                "subject": player.subject,
+                "character": player.character,
+                "team_id": player.team_id,
+                "game_name": player.game_name,
+                "account_level": player.account_level,
+                "player_card_id": player.player_card_id,
+                "player_title_id": player.player_title_id,
+                "preferred_level_border_id": player.preferred_level_border_id,
+                "agent_icon": player.agent_icon,
+                "rank": player.rank,
+                "rr": player.rr,
+                "leaderboard_rank": player.leaderboard_rank
+            }
+            payload["players"].append(player_data)
+
+    response = requests.post(f"{base_url}/active_matches/", json=payload)
+    if response.status_code == 201:
+        print(f"Successfully created active match entry for {match_data.match_uuid}")
+        return True
+    elif response.status_code == 400:
+        # Match might already exist, that's okay
+        print(f"Active match {match_data.match_uuid} already exists")
+        return True
+    else:
+        print(f"Failed to create active match: {response.status_code} - {response.text}")
         return False
 
 async def end_active_match(match_uuid):
@@ -197,13 +209,16 @@ async def run_agent():
                     await asyncio.sleep(5)
                     continue
 
+                # checking if discord rpc is present
                 if last_rpc_update is None:
                     last_rpc_update = match_data
                     rpc.set_match_presence(match_data, int(time.time()))
 
+                # if the match data has changed, update the discord rpc
                 if  dicts_differ(last_rpc_update, match_data):
                     rpc.set_match_presence(match_data)
                     last_rpc_update = match_data
+
 
                 if match_data and match_data.match_uuid:
                     current_match_uuid = match_data.match_uuid
@@ -223,7 +238,7 @@ async def run_agent():
                         asyncio.create_task(handle_ws_messages(ws))
 
                         # Create an active match entry in the backend
-                        await create_active_match_with_players(match_uuid, match_data)
+                        await create_active_match_via_api(match_data)
 
                         # Send initial match data to populate the database
                         await send_initial_match_data(ws, match_uuid, match_data)
@@ -272,6 +287,7 @@ async def run_agent():
             except Exception as e:
                 print(f"Error in agent loop: {str(e)}")
                 ws = None
+                raise e
 
             await asyncio.sleep(10)
         else:
