@@ -86,9 +86,7 @@ export const LiveDashboard: React.FC = () => {
                 switch (eventData.type) {
                     case "match_update": {
                         // Parse the data if it's a string, otherwise use it directly
-                        const currentMatch = typeof eventData.data === 'string'
-                            ? JSON.parse(eventData.data) as CurrentMatch
-                            : eventData.data as CurrentMatch;
+                        const currentMatch = eventData.data as CurrentMatch;
                         setMatchData({
                             match: currentMatch
                         });
@@ -117,7 +115,7 @@ export const LiveDashboard: React.FC = () => {
     }, [matchUuid]);
 
     return (
-        <div className="min-h-screen bg-zinc-900 text-white p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
             <div className="max-w-6xl mx-auto">
                 {/* Only render IngameDashboard once matchData is defined */}
                 {matchData ? (

@@ -50,8 +50,10 @@ class Match:
         players = []
         puuids = [p["Subject"] for p in data["Players"]]
         names = get_multiple_names_from_puuid(puuids, self.requests)
-
+        print(data["Players"])
         for p in data["Players"]:
+            rank = self.get_rank_by_uuid(p["Subject"])
+
             players.append(
                 CurrentMatchPlayer(
                     subject=p["Subject"],
@@ -63,7 +65,9 @@ class Match:
                     player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
                     preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
                     agent_icon=get_agent_icon(p["CharacterID"]),
-                    rank="unranked", #TODO
+                    rank=rank["rank"],
+                    rr=rank["rr"],
+
                 )
             )
         return CurrentMatch(
@@ -123,5 +127,22 @@ class Match:
         return gamemode
 
     def get_rank_by_id(self, rank_id: int):
-        print(rank_id)
         return ranks.get(rank_id, "Unranked")
+
+    def get_rank_by_uuid(self, uuid: str) -> dict:
+        try:
+            data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
+            if not data:
+                return {"rank": "Unranked", "rr": None}
+            latest_rank = data["LatestCompetitiveUpdate"]["TierAfterUpdate"]
+            latest_rr = data["LatestCompetitiveUpdate"]["RankedRatingAfterUpdate"]
+
+            ret = {
+                "rank": self.get_rank_by_id(latest_rank).get("tierName", "Unranked"),
+                "rr": latest_rr,
+            }
+            print(ret)
+            return ret
+
+        except Exception:
+            return {"rank": "Unranked", "rr": None}
