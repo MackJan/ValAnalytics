@@ -1,11 +1,6 @@
-import asyncio
-import json
 import logging
 from typing import Dict, List
-
-import websocket
-from fastapi import WebSocket, HTTPException
-from starlette.websockets import WebSocketDisconnect
+from fastapi import WebSocket
 from .cleanup_service import cleanup_service
 
 class ConnectionManager:

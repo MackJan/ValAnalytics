@@ -1,26 +1,10 @@
-import api from "./api";
-
 const Home = () => {
   return (
-    <div className="bg-[#201E1D] h-screen flex flex-col items-center justify-center">
-       <button className="bg-zinc-700 hover:bg-zinc-900 text-white font-bold py-2 px-4 rounded"
-        onClick={async () => {
-          try {
-            await api.get("/users/").then((response) => {
-            console.log(response.data); // Handle the response data
-              alert(JSON.stringify(response.data));
-          })
-          .catch((error) => {
-            console.error("Error:", error); // Handle any errors
-          });
-
-          } catch (error) {
-            alert("Error: " + error);
-          }
-        }}
-      >
-        Test API
-      </button>
+    <div className="bg-[#201E1D] h-screen flex flex-col items-center justify-center text-white">
+      <h1 className="text-4xl font-bold mb-4">Welcome to Performance Tracker</h1>
+      <p className="text-lg mb-6 text-center max-w-md">
+        Performance Tracker helps you monitor and analyze your activities to improve efficiency and achieve your goals. Explore the features and start tracking today!
+      </p>
     </div>
   );
 };
