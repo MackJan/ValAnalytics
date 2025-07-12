@@ -1,19 +1,17 @@
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, WebSocket, APIRouter
-from fastapi.exceptions import RequestValidationError, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
 from .database import init_db, engine
 from .api import router as api_router
-from .models import ActiveMatch, ActiveMatchPlayer
+from .models import ActiveMatch
 from .websocket import ConnectionManager
-from .cleanup_service import cleanup_service
 import time, logging
 from sqlalchemy.orm import selectinload
 
