@@ -1,6 +1,6 @@
 # Valorant Performance Tracker
 
-Valorant Performance Tracker is a multi-component application that collects live match information from the game client and displays it in real time. It currently consists of:
+Valorant Performance Tracker is a application that collects live match information from the game client and displays it in real time. It currently consists of:
 
 - **Agent** – A Python script that communicates with local Riot APIs to obtain your presence, match details and other information. It sends live updates to the backend via WebSockets and updates Discord Rich Presence.
 - **Backend** – A FastAPI service that stores active match data in a PostgreSQL database and relays live updates to connected front‑end clients through WebSockets.
@@ -24,6 +24,11 @@ Run the agent locally (requires Python 3.9 and `pip install -r agent/requirement
 - Updates Discord Rich Presence with map, mode, score and party size.
 - Stores active match data in PostgreSQL via FastAPI.
 - Live match dashboard showing team scores and players (WIP).
+
+## Roadmap (WIP)
+- [ ] Discord RPC button that redirects to a public view of the live match
+- [ ] Display match history to analyze past matches and performances
+
 
 ## Screenshots
 
