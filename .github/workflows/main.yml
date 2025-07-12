@@ -1,0 +1,51 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main  # adjust as needed
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/valanalytics-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/valanalytics-frontend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build backend image
+        run: |
+          docker build -t $IMAGE_BACKEND:latest ./backend
+          docker push $IMAGE_BACKEND:latest
+
+      - name: Build frontend image
+        run: |
+          docker build -t $IMAGE_FRONTEND:latest ./frontend
+          docker push $IMAGE_FRONTEND:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH to server and deploy
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script: |
+            cd /opt/valanalytics
+            docker compose pull
+            docker compose up -d
