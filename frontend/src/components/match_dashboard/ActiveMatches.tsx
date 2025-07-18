@@ -87,8 +87,8 @@ const ActiveMatches: React.FC = () => {
                                 className="bg-slate-800/60 backdrop-blur-sm border border-slate-700 p-6 rounded-xl hover:bg-slate-800/80 transition-all duration-200"
                             >
                                 <div className="mb-4">
-                                    <h3 className="text-xl font-bold text-purple-400">Match {match.match_uuid.slice(-8)}</h3>
-                                    <p className="text-gray-400">Started {formatTime(match.started_at)}</p>
+                                    <h3 className="text-xl font-bold text-purple-400">{match.game_mode} - {match.game_map}</h3>
+                                    <p className="text-gray-400">Started {formatTime(match.created_at)}</p>
                                     <p className="text-gray-500 text-sm">UUID: {match.match_uuid}</p>
                                 </div>
                                 <button

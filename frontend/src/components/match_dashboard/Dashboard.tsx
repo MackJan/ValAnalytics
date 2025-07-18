@@ -57,8 +57,9 @@ export interface MenuData {
 export const LiveDashboard: React.FC = () => {
     const {matchUuid} = useParams<{ matchUuid: string }>();
     const [matchData, setMatchData] = useState<MatchData>();
-    const [initialPlayerData, setInitialPlayerData] = useState<CurrentMatchPlayer[] | null>(null);
 
+    // Use useRef instead of useState for initial player data
+    const initialPlayerDataRef = useRef<CurrentMatchPlayer[] | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -68,6 +69,9 @@ export const LiveDashboard: React.FC = () => {
         if (wsRef.current) {
             wsRef.current.close();
         }
+
+        // Reset initial player data when connecting to new match
+        initialPlayerDataRef.current = null;
 
         console.log("Connecting to WebSocket for match:", uuid);
 
@@ -87,20 +91,21 @@ export const LiveDashboard: React.FC = () => {
 
                 switch (eventData.type) {
                     case "initial_data": {
-                        // Parse the data if it's a string, otherwise use it directly
                         const currentMatch = eventData.data as CurrentMatch;
-                        setInitialPlayerData(currentMatch.players);
+                        // Store in ref for immediate access
+                        initialPlayerDataRef.current = currentMatch.players;
                         setMatchData({
                             match: currentMatch
                         });
                         break;
                     }
                     case "match_update": {
-                        // Parse the data if it's a string, otherwise use it directly
                         const currentMatch = eventData.data as CurrentMatch;
-                        console.log("Initial player data:", initialPlayerData);
-                        if (initialPlayerData != null && initialPlayerData.length > 0) {
-                            currentMatch.players = initialPlayerData;
+                        console.log("Initial player data:", initialPlayerDataRef.current);
+
+                        // Use ref data if available
+                        if (initialPlayerDataRef.current && initialPlayerDataRef.current.length > 0) {
+                            currentMatch.players = initialPlayerDataRef.current;
                         }
 
                         setMatchData({
@@ -110,6 +115,7 @@ export const LiveDashboard: React.FC = () => {
                     }
                     case "match_end":
                         setMatchData(undefined);
+                        initialPlayerDataRef.current = null;
                         break;
                 }
             } catch (err) {
@@ -128,12 +134,11 @@ export const LiveDashboard: React.FC = () => {
                 wsRef.current = null;
             }
         };
-    }, [matchUuid]);
+    }, [matchUuid]); // Only depend on matchUuid
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
             <div className="max-w-6xl mx-auto">
-                {/* Only render IngameDashboard once matchData is defined */}
                 {matchData ? (
                     <IngameDashboard matchData={matchData}/>
                 ) : (
