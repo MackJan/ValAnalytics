@@ -14,6 +14,8 @@ from .models import ActiveMatch
 from .websocket import ConnectionManager
 import time, logging
 from sqlalchemy.orm import selectinload
+from datetime import datetime, timezone
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +32,8 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown complete")
 
 
-def update_model_from_json(model_instance, json_data: dict):
+async def update_model_from_json(model_instance, json_data: dict):
     """Update a SQLModel instance with JSON data, only updating valid fields"""
-    from datetime import datetime, timezone
 
     # Use model_fields for Pydantic v2 compatibility
     model_fields = set(model_instance.model_fields.keys())
@@ -101,58 +102,71 @@ def create_app() -> FastAPI:
         try:
             while True:
                 data = await websocket.receive_json()
-                print(f"Received data from agent for match {match_uuid}: {data}")
+                logger.info(f"Received data from agent for match {match_uuid}: {data}")
 
                 # update the active match in the database
-                async with AsyncSession(engine) as session:
-                    result = await session.exec(
-                        select(ActiveMatch).where(ActiveMatch.match_uuid == match_uuid)
-                    )
-                    active_match = result.first()
-                    match_data = data.get("data", None)
-                    if not match_data:
-                        print("No data field found in message")
-                        continue
-
-                    # If match_data is a string (JSON), parse it
-                    if isinstance(match_data, str):
-                        try:
-                            import json
-                            match_data = json.loads(match_data)
-                        except json.JSONDecodeError as e:
-                            print(f"Failed to parse match_data JSON: {e}")
+                try:
+                    async with AsyncSession(engine) as session:
+                        result = await session.exec(
+                            select(ActiveMatch).where(ActiveMatch.match_uuid == match_uuid)
+                        )
+                        active_match = result.first()
+                        match_data = data.get("data", None)
+                        if not match_data:
+                            logger.info("No data field found in message")
                             continue
 
-                    if active_match:
-                        # Create a copy to avoid modifying the original
-                        match_data_copy = dict(match_data) if isinstance(match_data, dict) else {}
+                        # If match_data is a string (JSON), parse it
+                        if isinstance(match_data, str):
+                            try:
+                                import json
+                                match_data = json.loads(match_data)
+                            except json.JSONDecodeError as e:
+                                logger.info(f"Failed to parse match_data JSON: {e}")
+                                continue
 
-                        # Remove players from match_data since they don't change after initial creation
-                        match_data_copy.pop("players", [])
+                        if active_match:
+                            # Create a copy to avoid modifying the original
+                            match_data_copy = dict(match_data) if isinstance(match_data, dict) else {}
 
-                        print(f"Updating match with data: {match_data_copy}")
+                            # Remove players from match_data since they don't change after initial creation
+                            match_data_copy.pop("players", [])
 
-                        # Update main match fields with validation and type conversion
-                        update_model_from_json(active_match, match_data_copy)
+                            logger.info(f"Updating match with data: {match_data_copy}")
 
-                        session.add(active_match)
-                        await session.commit()
-                        await session.refresh(active_match)
-                        print(f"Successfully updated active match {match_uuid}")
-                    else:
-                        print(f"No active match found for UUID: {match_uuid}")
+                            # Update main match fields with validation and type conversion
+                            await update_model_from_json(active_match, match_data_copy)
 
-                # Send the updated data to frontend clients
-                await manager.broadcast(match_uuid, data)
+                            session.add(active_match)
+                            await session.commit()
+                            await session.refresh(active_match)
+                            logger.info(f"Successfully updated active match {match_uuid}")
+                        else:
+                            logger.info(f"No active match found for UUID: {match_uuid}")
 
-                # Send acknowledgment back to agent
-                await websocket.send_text("ACK")
+                    # Send the updated data to frontend clients
+                    await manager.broadcast(match_uuid, data)
+
+                    # Send acknowledgment back to agent
+                    await websocket.send_text("ACK")
+
+                except Exception as db_error:
+                    logger.error(f"Database error in agent websocket: {db_error}")
+                    # Try to send error acknowledgment if websocket is still open
+                    try:
+                        await websocket.send_text("ERROR")
+                    except Exception:
+                        # If we can't send, the connection is probably closed
+                        break
+
         except WebSocketDisconnect:
             manager.disconnect_agent(match_uuid)
             print(f"Agent disconnected from match {match_uuid}")
         except Exception as e:
             print(f"Error in agent websocket: {str(e)}")
             logger.error(f"Error in agent websocket: {str(e)}")
+            # Clean up connection on any error
+            manager.disconnect_agent(match_uuid)
 
     @app.websocket("/ws/live/{match_uuid}")
     async def live_ws(ws: WebSocket, match_uuid: str):
@@ -204,18 +218,18 @@ def create_app() -> FastAPI:
                             match_dict["players"].append(player_dict)
 
                     message = {
-                        "type": "match_update",
+                        "type": "initial_data",
                         "match_uuid": match_uuid,
                         "data": match_dict,
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }
 
                     await ws.send_json(message)
-                    print(f"Sent initial match data to frontend for {match_uuid}")
+                    logger.info(f"Sent initial match data to frontend for {match_uuid}")
                 else:
                     # Request data from agent if no match found
                     #await manager.request_data(match_uuid)
-                    print(f"Requested data from agent for {match_uuid}")
+                    logger.info(f"Requested data from agent for {match_uuid}")
 
             # Keep connection alive and wait for disconnect
             while True:
@@ -223,12 +237,15 @@ def create_app() -> FastAPI:
                     await ws.receive_text()
                 except WebSocketDisconnect:
                     break
+
         except WebSocketDisconnect:
-            manager.disconnect_frontend(match_uuid, ws)
-            print(f"Frontend disconnected from match {match_uuid}")
+            pass  # Normal disconnection, will be handled in finally block
         except Exception as e:
-            print(f"Error in live websocket: {str(e)}")
-            logger.error(f"Error in live websocket: {str(e)}")
+            logger.error(f"Error in live websocket for {match_uuid}: {str(e)}")
+        finally:
+            # Always ensure cleanup happens
+            manager.disconnect_frontend(match_uuid, ws)
+            logger.info(f"Frontend disconnected from match {match_uuid}")
 
     return app
 app = create_app()

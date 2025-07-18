@@ -1,4 +1,5 @@
 import datetime
+import logging
 import time
 
 from agent.src.models import EnhancedJSONEncoder
@@ -10,6 +11,7 @@ import asyncio
 from constants import *
 import dataclasses
 from models import CurrentMatch, CurrentMatchPlayer
+import logging
 
 req = Requests()
 
@@ -20,6 +22,12 @@ m = Match()
 p = Presence(req)
 rpc = DiscordRPC()
 
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Create logger properly
+logger = logging.getLogger(__name__)
 
 async def create_active_match_via_api(match_data: CurrentMatch):
     """
@@ -63,14 +71,14 @@ async def create_active_match_via_api(match_data: CurrentMatch):
 
     response = requests.post(f"{base_url}/active_matches/", json=payload)
     if response.status_code == 201:
-        print(f"Successfully created active match entry for {match_data.match_uuid}")
+        logger.info(f"Successfully created active match entry for {match_data.match_uuid}")
         return True
     elif response.status_code == 400:
         # Match might already exist, that's okay
-        print(f"Active match {match_data.match_uuid} already exists")
+        logger.info(f"Active match {match_data.match_uuid} already exists")
         return True
     else:
-        print(f"Failed to create active match: {response.status_code} - {response.text}")
+        logger.error(f"Failed to create active match: {response.status_code} - {response.text}")
         return False
 
 async def end_active_match(match_uuid):
@@ -86,13 +94,13 @@ async def end_active_match(match_uuid):
                     end_payload = {"ended_at": datetime.now(timezone.utc).isoformat()}
                     end_response = requests.patch(f"{base_url}/active_matches/{match['id']}/", json=end_payload)
                     if end_response.status_code == 200:
-                        print(f"Successfully ended active match {match_uuid}")
+                        logger.info(f"Successfully ended active match {match_uuid}")
                         return True
                     break
-        print(f"Could not find or end active match {match_uuid}")
+        logger.error(f"Could not find or end active match {match_uuid}")
         return False
     except Exception as e:
-        print(f"Error ending active match: {str(e)}")
+        logger.error(f"Error ending active match: {str(e)}")
         return False
 
 async def send_initial_match_data(ws, match_uuid, match_data):
@@ -106,10 +114,10 @@ async def send_initial_match_data(ws, match_uuid, match_data):
         }
 
         await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
-        print(f"Sent initial match data for {match_uuid}")
+        logger.info(f"Sent initial match data for {match_uuid}")
         return True
     except Exception as e:
-        print(f"Error sending initial match data: {str(e)}")
+        logger.error(f"Error sending initial match data: {str(e)}")
         return False
 
 async def run_agent():
@@ -117,6 +125,7 @@ async def run_agent():
     ws = None
     last_update = None
     last_rpc_update = None
+    init = True
     req.get_headers()
 
     message_queue = asyncio.Queue()
@@ -151,27 +160,30 @@ async def run_agent():
                             }
 
                             await ws.send(json.dumps(update_message, cls=EnhancedJSONEncoder))
-                            print(f"Sent data in response to request for match {match_uuid}")
+                            logger.info(f"Sent data in response to request for match {match_uuid}")
                     except Exception as e:
-                        print(f"Error handling request_data: {str(e)}")
+                        logger.error(f"Error handling request_data: {str(e)}")
+                        raise e
                 else:
-                    print(f"Received message: {msg}")
+                    logger.info(f"Received message: {msg}")
             except websockets.exceptions.ConnectionClosed:
-                print("WebSocket connection closed in message handler")
+                logger.info("WebSocket connection closed in message handler")
                 break
             except Exception as e:
-                print(f"Error in message handler: {str(e)}")
+                logger.error(f"Error handling WebSocket message: {raw}")
+                logger.error(f"Error in message handler: {str(e)}")
+                raise e
                 break
 
     while True:
         presence = p.get_presence()
         game_state = p.get_game_state(presence)
         if game_state is None or game_state == "None":
-            print("No game state found, waiting for presence update...")
+            logger.info("No game state found, waiting for presence update...")
             await asyncio.sleep(5)
             continue
         elif game_state == "MENUS":
-            print("In menus, waiting for game to start...")
+            logger.info("In menus, waiting for game to start...")
 
             party_data = decode_presence(p.get_private_presence(p.get_presence()))
             presence_data = {
@@ -187,7 +199,7 @@ async def run_agent():
             continue
 
         elif game_state == "PREGAME":
-            print("In pregame, waiting for match to start...")
+            logger.info("In pregame, waiting for match to start...")
             party_data = decode_presence(p.get_private_presence(p.get_presence()))
             presence_data = {
                 "state": "Pregame",
@@ -202,10 +214,13 @@ async def run_agent():
             pass
         elif game_state == "INGAME":
             try:
-                match_data = m.get_current_match_details()
-
+                if last_update is None:
+                    match_data = m.get_current_match_details(init=init)
+                else:
+                    match_data = m.get_current_match_details()
+                init = False
                 if match_data is None:
-                    print("No match data found, waiting for next update...")
+                    logger.info("No match data found, waiting for next update...")
                     await asyncio.sleep(5)
                     continue
 
@@ -232,7 +247,7 @@ async def run_agent():
                         # Connect to new match
                         match_uuid = current_match_uuid
                         ws = await websockets.connect(f"{ws_url}/{match_uuid}")
-                        print(f"Connected to WebSocket for match {match_uuid}")
+                        logger.info(f"Connected to WebSocket for match {match_uuid}")
 
                         # Start listening for incoming messages
                         asyncio.create_task(handle_ws_messages(ws))
@@ -247,9 +262,9 @@ async def run_agent():
                         # Wait for acknowledgment of initial data
                         try:
                             response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
-                            print(f"Received acknowledgment for initial data: {response}")
+                            logger.info(f"Received acknowledgment for initial data: {response}")
                         except asyncio.TimeoutError:
-                            print("No acknowledgment received for initial data")
+                            logger.info("No acknowledgment received for initial data")
 
                         # Skip the regular update this time since we just sent initial data
                         await asyncio.sleep(10)
@@ -257,7 +272,7 @@ async def run_agent():
 
                     if last_update is not None:
                         if not dicts_differ(match_data, last_update):
-                            print("No new data to send, skipping...")
+                            logger.info("No new data to send, skipping...")
                             await asyncio.sleep(5)
                             continue
 
@@ -272,20 +287,20 @@ async def run_agent():
                     await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
                     last_update = match_data
 
-                    print(f"Sent live data for match {match_uuid}: {message}")
-                    print(match_data)
+                    logger.info(f"Sent live data for match {match_uuid}: {message}")
+
                     # Wait for acknowledgment from the queue
                     try:
-                        response = await asyncio.wait_for(message_queue.get(), timeout=1.0)
-                        print(f"Received response: {response}")
+                        response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
+                        logger.info(f"Received response: {response}")
                     except asyncio.TimeoutError:
-                        print("No acknowledgment received")
+                        logger.warning("No acknowledgment received")
 
             except websockets.exceptions.ConnectionClosed:
-                print("WebSocket connection closed, will reconnect on next loop")
+                logger.info("WebSocket connection closed, will reconnect on next loop")
                 ws = None
             except Exception as e:
-                print(f"Error in agent loop: {str(e)}")
+                logger.error(f"Error in agent loop: {str(e)}")
                 ws = None
                 raise e
 
