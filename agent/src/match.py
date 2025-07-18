@@ -32,7 +32,7 @@ class Match:
 
         return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
-    def get_current_match_details(self) -> Optional[CurrentMatch]:
+    def get_current_match_details(self,init:bool=False) -> Optional[CurrentMatch]:
         match_id = self.get_current_match_id()
         if not match_id:
             self.logger.debug("No current match found.")
@@ -50,26 +50,27 @@ class Match:
         players = []
         puuids = [p["Subject"] for p in data["Players"]]
         names = get_multiple_names_from_puuid(puuids, self.requests)
-        print(data["Players"])
-        for p in data["Players"]:
-            rank = self.get_rank_by_uuid(p["Subject"])
+        if init:
+            for p in data["Players"]:
+                rank = self.get_rank_by_uuid(p["Subject"])
 
-            players.append(
-                CurrentMatchPlayer(
-                    subject=p["Subject"],
-                    character=get_agent_name(p["CharacterID"]),
-                    team_id=p["TeamID"],
-                    game_name=names.get(p["Subject"], "Unknown Player"),
-                    account_level=p["PlayerIdentity"].get("AccountLevel"),
-                    player_card_id=p["PlayerIdentity"].get("PlayerCardID"),
-                    player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
-                    preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
-                    agent_icon=get_agent_icon(p["CharacterID"]),
-                    rank=rank["rank"],
-                    rr=rank["rr"],
+                players.append(
+                    CurrentMatchPlayer(
+                        subject=p["Subject"],
+                        character=get_agent_name(p["CharacterID"]),
+                        team_id=p["TeamID"],
+                        game_name=names.get(p["Subject"], "Unknown Player"),
+                        account_level=p["PlayerIdentity"].get("AccountLevel"),
+                        player_card_id=p["PlayerIdentity"].get("PlayerCardID"),
+                        player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
+                        preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
+                        agent_icon=get_agent_icon(p["CharacterID"]),
+                        rank=rank["rank"],
+                        rr=rank["rr"],
 
+                    )
                 )
-            )
+
         return CurrentMatch(
             match_uuid=data["MatchID"],
             game_map=get_map_name(data["MapID"]),
@@ -115,7 +116,7 @@ class Match:
 
     def get_current_match_id(self) -> str:
         match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user.puuid}", "get")
-        print(match)
+
         if match and "MatchID" in match:
             return match["MatchID"]
 
@@ -141,7 +142,6 @@ class Match:
                 "rank": self.get_rank_by_id(latest_rank).get("tierName", "Unranked"),
                 "rr": latest_rr,
             }
-            print(ret)
             return ret
 
         except Exception:

@@ -35,7 +35,7 @@ export interface MatchData {
 }
 
 // Types for live events
-export type LiveEventType = "match_update" | "match_end";
+export type LiveEventType = "match_update" | "match_end" | "initial_data";
 
 export interface LiveEvent {
     type: LiveEventType;
@@ -57,6 +57,8 @@ export interface MenuData {
 export const LiveDashboard: React.FC = () => {
     const {matchUuid} = useParams<{ matchUuid: string }>();
     const [matchData, setMatchData] = useState<MatchData>();
+    const [initialPlayerData, setInitialPlayerData] = useState<CurrentMatchPlayer[] | null>(null);
+
     const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -84,9 +86,23 @@ export const LiveDashboard: React.FC = () => {
                 console.log("Received event:", eventData);
 
                 switch (eventData.type) {
+                    case "initial_data": {
+                        // Parse the data if it's a string, otherwise use it directly
+                        const currentMatch = eventData.data as CurrentMatch;
+                        setInitialPlayerData(currentMatch.players);
+                        setMatchData({
+                            match: currentMatch
+                        });
+                        break;
+                    }
                     case "match_update": {
                         // Parse the data if it's a string, otherwise use it directly
                         const currentMatch = eventData.data as CurrentMatch;
+                        console.log("Initial player data:", initialPlayerData);
+                        if (initialPlayerData != null && initialPlayerData.length > 0) {
+                            currentMatch.players = initialPlayerData;
+                        }
+
                         setMatchData({
                             match: currentMatch
                         });
