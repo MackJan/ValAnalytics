@@ -83,80 +83,9 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    #if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/full-prototype'
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Create deployment docker-compose
-      run: |
-        # Create a production docker-compose file
-        cat > docker-compose.prod.yml << EOF
-        services:
-          postgres:
-            image: postgres:13
-            environment:
-              POSTGRES_USER: postgres
-              POSTGRES_PASSWORD: \${{ secrets.POSTGRES_PASSWORD }}
-              POSTGRES_DB: valorant
-            volumes:
-              - pgdata:/var/lib/postgresql/data
-            ports:
-              - "5432:5432"
-            networks:
-              - app_network
-            healthcheck:
-              interval: 5s
-              test: ["CMD", "pg_isready", "-U", "postgres"]
-            restart: unless-stopped
-
-          backend:
-            image: ${{ needs.build-and-push.outputs.backend-image }}
-            depends_on:
-              postgres:
-                condition: service_healthy
-            environment:
-              - DATABASE_URL=postgresql+asyncpg://postgres:\${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/valorant
-              - REDIS_URL=redis://redis:6379/0
-              - SECRET_KEY=\${{ secrets.SECRET_KEY }}
-            ports:
-              - "8000:8000"
-            networks:
-              - app_network
-            restart: unless-stopped
-            command: >
-              sh -c "alembic upgrade head &&
-                     uvicorn app.main:app --host 0.0.0.0 --port 8000"
-
-          frontend:
-            image: ${{ needs.build-and-push.outputs.frontend-image }}
-            depends_on:
-              - backend
-            ports:
-              - "5173:5173"
-            networks:
-              - app_network
-            restart: unless-stopped
-
-        volumes:
-          pgdata:
-
-        networks:
-          app_network:
-            driver: bridge
-        EOF
-
-    - name: Copy files to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.PORT }}
-        source: "docker-compose.prod.yml"
-        target: "/home/${{ secrets.USERNAME }}/performance-tracker/"
-
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -170,16 +99,22 @@ jobs:
           # Login to GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
+          # Set environment variables for the latest images
+          export BACKEND_IMAGE=${{ needs.build-and-push.outputs.backend-image }}
+          export FRONTEND_IMAGE=${{ needs.build-and-push.outputs.frontend-image }}
+          
           # Pull the latest images
-          docker compose -f docker-compose.prod.yml pull
+          docker compose pull
           
           # Stop and remove old containers
-          docker compose -f docker-compose.prod.yml down
+          docker compose down
           
-          # Start the application
-          docker compose -f docker-compose.prod.yml up -d
+          # Start the application with the new images
+          docker compose up -d
           
           # Clean up old images
           docker image prune -f
           
           echo "Deployment completed successfully!"
+          echo "Backend image: $BACKEND_IMAGE"
+          echo "Frontend image: $FRONTEND_IMAGE"
