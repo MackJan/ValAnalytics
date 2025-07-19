@@ -1,11 +1,13 @@
 # Multi-stage build for production
-FROM node:18-bullseye-slim as builder
+FROM node:20-bullseye-slim as builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json ./
-RUN npm ci --only=production
+
+# Install ALL dependencies (including dev dependencies needed for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
