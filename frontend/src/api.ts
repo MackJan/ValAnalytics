@@ -1,8 +1,25 @@
 import axios from "axios";
 import { ACCESS_TOKEN } from "./constants";
 
+// In production, use relative URLs that nginx will proxy
+// In development, use the full backend URL or rely on Vite proxy
+const getBaseURL = () => {
+    // If VITE_API_URL is explicitly set, use it
+    if (import.meta.env.VITE_API_URL) {
+        return import.meta.env.VITE_API_URL;
+    }
+
+    // In production (when built), use relative paths that nginx will handle
+    if (import.meta.env.PROD) {
+        return '/api';
+    }
+
+    // In development, use relative paths that Vite proxy will handle
+    return '/api';
+};
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: getBaseURL(),
 });
 
 api.interceptors.request.use((config) => {
