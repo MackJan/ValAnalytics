@@ -34,6 +34,6 @@ Run the agent locally (requires Python 3.9 and `pip install -r agent/requirement
 
 ![Discord RPC](https://media.discordapp.net/attachments/768367820119343107/1393234035844710471/image.png?ex=68726dcf&is=68711c4f&hm=45258ea274555b727f2ce4b9f3e9a655b0974ae7a6c68cb08233dbe9b8457964&=&format=webp&quality=lossless)
 
-![Active Matches](https://media.discordapp.net/attachments/768367820119343107/1393234035182145779/image.png?ex=68726dcf&is=68711c4f&hm=657bc66976cf392b3cb5a6f28fb81312d806390b1bff05e9d5ce80192f9a2bd2&=&format=webp&quality=lossless)
+![Active Matches](https://github.com/MackJan/ValAnalytics/blob/main/assets/active_matches.png)
 
-![Match Dashboard](https://media.discordapp.net/attachments/768367820119343107/1393234035614027906/image.png?ex=68726dcf&is=68711c4f&hm=03f26632cd33fca5de941adb7b46cc73cf167204024157555a9c7b85054ebd2f&=&format=webp&quality=lossless&width=853&height=856)
+![Match Dashboard](https://github.com/MackJan/ValAnalytics/blob/main/assets/current_match.png)
