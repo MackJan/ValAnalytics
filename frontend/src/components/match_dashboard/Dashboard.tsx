@@ -80,33 +80,33 @@ export const LiveDashboard: React.FC = () => {
         );
         wsRef.current = ws;
 
-        const connectionId = Math.random().toString(36).substring(2, 10);
+                const connectionId = Math.random().toString(36).substring(2, 10);
 
-        ws.onopen = () =>
-            console.log(`WebSocket ${connectionId} connected for match ${uuid}`);
-        ws.onmessage = (event) => {
-            try {
-                const eventData = JSON.parse(event.data) as LiveEvent;
-                console.log("Received event:", eventData);
+                ws.onopen = () =>
+                    console.log(`WebSocket ${connectionId} connected for match ${uuid}`);
+                ws.onmessage = (event) => {
+                    try {
+                        const eventData = JSON.parse(event.data) as LiveEvent;
+                        console.log("Received event:", eventData);
 
-                switch (eventData.type) {
-                    case "initial_data": {
-                        const currentMatch = eventData.data as CurrentMatch;
-                        // Store in ref for immediate access
-                        initialPlayerDataRef.current = currentMatch.players;
-                        setMatchData({
-                            match: currentMatch
-                        });
-                        break;
-                    }
-                    case "match_update": {
-                        const currentMatch = eventData.data as CurrentMatch;
-                        console.log("Initial player data:", initialPlayerDataRef.current);
+                        switch (eventData.type) {
+                            case "initial_data": {
+                                const currentMatch = eventData.data as CurrentMatch;
+                                // Store in ref for immediate access
+                                initialPlayerDataRef.current = currentMatch.players;
+                                setMatchData({
+                                    match: currentMatch
+                                });
+                                break;
+                            }
+                            case "match_update": {
+                                const currentMatch = eventData.data as CurrentMatch;
+                                console.log("Initial player data:", initialPlayerDataRef.current);
 
-                        // Use ref data if available
-                        if (initialPlayerDataRef.current && initialPlayerDataRef.current.length > 0) {
-                            currentMatch.players = initialPlayerDataRef.current;
-                        }
+                                // Use ref data if available
+                                if (initialPlayerDataRef.current && initialPlayerDataRef.current.length > 0) {
+                                    currentMatch.players = initialPlayerDataRef.current;
+                                }
 
                         setMatchData({
                             match: currentMatch

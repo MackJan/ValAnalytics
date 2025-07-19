@@ -9,7 +9,17 @@ from datetime import datetime
 from req import Requests
 req = Requests()
 
-base_url = "ws://localhost:8000/ws"
+base_url = "http://localhost:8000/api"
+
+# API Key for authentication
+API_KEY = "vpt_" + "change_this_to_your_api_key"  # You can get this from the backend startup logs
+
+def get_headers():
+    """Get headers with API key authentication"""
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {API_KEY}'
+    }
 
 async def push_match_detail(match: dict):
     async with websockets.connect(base_url) as ws:
@@ -35,11 +45,12 @@ def post_user_and_match():
         "name": user.user["game_name"],
         "tag": user.user["game_tag"]
     }
-    response = requests.post(f"{base_url}/users/get-or-create/", json=user_data)
+    headers = get_headers()
+    response = requests.post(f"{base_url}/users/get-or-create/", json=user_data, headers=headers)
     print(response.content)
 
     req.get_headers()
-    users = requests.get(f"{base_url}/users/")
+    users = requests.get(f"{base_url}/users/", headers=headers)
     user = None
     print(req.puuid)
     print(users)
@@ -51,7 +62,6 @@ def post_user_and_match():
     if user is None:
         print("error")
         return
-    headers = {'Content-type': 'application/json'}
 
     m = Match()
     matches = m.get_match_history()
@@ -140,5 +150,5 @@ def post_auth():
         "user_agent": headers["User-Agent"],
     }
 
-    response = requests.post(f"{base_url}/users/riot_auth/", json=data)
+    response = requests.post(f"{base_url}/users/riot_auth/", json=data, headers=get_headers())
     print(response.text)
