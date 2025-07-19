@@ -3,10 +3,10 @@ FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json* ./
 
-# Install all dependencies (including devDependencies for building)
-RUN npm ci
+# Install all dependencies (using npm install to handle lock file sync)
+RUN npm install
 
 # Copy source code and config files
 COPY . .
