@@ -19,10 +19,19 @@ const ActiveMatches: React.FC = () => {
         try {
             setError(null);
             const matches = await activeMatchApi.getActiveMatches();
-            setActiveMatches(matches);
+            // Ensure we always have an array
+            if (Array.isArray(matches)) {
+                setActiveMatches(matches);
+            } else {
+                console.error('API returned non-array data:', matches);
+                setActiveMatches([]);
+                setError('Invalid data format received from server');
+            }
         } catch (err) {
             setError('Failed to fetch active matches');
             console.error('Error fetching active matches:', err);
+            // Ensure activeMatches stays as an empty array on error
+            setActiveMatches([]);
         } finally {
             setLoading(false);
         }
