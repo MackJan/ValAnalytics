@@ -3,8 +3,6 @@ name: Build and Deploy
 on:
   push:
     branches: [ main, master, full-prototype ]
-  pull_request:
-    branches: [ main, master ]
 
 env:
   REGISTRY: ghcr.io
