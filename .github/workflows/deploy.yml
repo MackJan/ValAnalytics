@@ -88,20 +88,24 @@ jobs:
     steps:
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
+      env:
+        BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend-image }}
+        FRONTEND_IMAGE: ${{ needs.build-and-push.outputs.frontend-image }}
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
+        envs: BACKEND_IMAGE,FRONTEND_IMAGE
         script: |
           cd /home/${{ secrets.USERNAME }}/performance-tracker/
           
           # Login to GitHub Container Registry
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
-          # Set environment variables for the latest images
-          export BACKEND_IMAGE=${{ needs.build-and-push.outputs.backend-image }}
-          export FRONTEND_IMAGE=${{ needs.build-and-push.outputs.frontend-image }}
+          # Export environment variables for docker-compose
+          export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+          export SECRET_KEY="${{ secrets.SECRET_KEY }}"
           
           # Pull the latest images
           docker compose pull
@@ -116,5 +120,3 @@ jobs:
           docker image prune -f
           
           echo "Deployment completed successfully!"
-          echo "Backend image: $BACKEND_IMAGE"
-          echo "Frontend image: $FRONTEND_IMAGE"
