@@ -15,11 +15,11 @@ import logging
 
 req = Requests()
 
-base_url = "http://localhost:8000/api"
-ws_url = "ws://localhost:8000/ws"
+base_url = "http://janmack.de:8000/api"
+ws_url = "ws://janmack.de:8000/ws"
 
 # API Key for authentication - get this from backend startup logs
-API_KEY = "vpt_" + "hDM8B61YBZ6bEtWpcbwUWw-iBPotDTxymNCQrkxG3Ik"  # Replace with actual API key
+API_KEY = "vpt_P3qdpJWYqrfoE4POJWRtjVS6m4T7PG4bP2LtfW8wme4"  # Replace with actual API key
 
 req.get_headers()
 m = Match()
