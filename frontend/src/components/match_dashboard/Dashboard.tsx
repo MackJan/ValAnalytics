@@ -137,14 +137,12 @@ export const LiveDashboard: React.FC = () => {
     }, [matchUuid]); // Only depend on matchUuid
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-            <div className="max-w-6xl mx-auto">
-                {matchData ? (
-                    <IngameDashboard matchData={matchData}/>
-                ) : (
-                    <div className="text-gray-500">Waiting for live data…</div>
-                )}
-            </div>
+        <div>
+            {matchData ? (
+                <IngameDashboard matchData={matchData}/>
+            ) : (
+                <div className="text-gray-500">Waiting for live data…</div>
+            )}
         </div>
     );
 };

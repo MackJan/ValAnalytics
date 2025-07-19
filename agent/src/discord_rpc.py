@@ -75,16 +75,18 @@ class DiscordRPC:
             state = "Solo" if match_data.party_size == 1 else "In a party"
             details = f"{match_data.game_mode} {match_data.party_owner_score}-{match_data.party_owner_enemy_score}"
 
-            self.presence.update(
+            response = self.presence.update(
                 state=state,
                 details=details,
                 start=int(time.time()),
                 large_image=match_data.game_map.lower(),
                 large_text=match_data.game_map,
-                small_image=match_data.players[0].character.lower() if match_data.players else None,
+                small_image=match_data.players[0].character.lower().replace("/", "") if match_data.players else None,
                 small_text=match_data.players[0].character if match_data.players else None,
                 party_size=[match_data.party_size,5],
                 instance=True,
+                buttons=[{"label": "My Website", "url": "https://qtqt.cf"}]
             )
+
         except Exception as e:
             print(f"Failed to set match presence: {e}")
