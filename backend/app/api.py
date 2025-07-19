@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status, Response, Depends
 from typing import List
 from sqlmodel import select
 from .schemas import (
@@ -7,13 +7,14 @@ from .schemas import (
 from .models import ActiveMatch
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .database import engine
+from .auth import verify_api_key
 
 
 router = APIRouter()
 
 # Active Match Endpoints
 @router.post("/active_matches/", response_model=None, status_code=status.HTTP_201_CREATED)
-async def create_active_match(active_match: ActiveMatchCreate):
+async def create_active_match(active_match: ActiveMatchCreate, api_key: str = Depends(verify_api_key)):
     from .models import ActiveMatchPlayer
     from sqlalchemy.orm import selectinload
 
@@ -61,7 +62,7 @@ async def create_active_match(active_match: ActiveMatchCreate):
 
 @router.get("/active_matches/", response_model=List[ActiveMatchRead])
 async def list_active_matches(
-        limit: int = 100,
+        limit: int = 100
 ):
     async with AsyncSession(engine) as session:
         # Use selectinload to eagerly load the players relationship
@@ -101,7 +102,8 @@ async def get_active_match(active_match_id: int):
 @router.patch("/active_matches/{active_match_id}/", response_model=ActiveMatchRead)
 async def update_active_match(
         active_match_id: int,
-        active_match: ActiveMatchUpdate
+        active_match: ActiveMatchUpdate,
+        api_key: str = Depends(verify_api_key)
 ):
     async with AsyncSession(engine) as session:
         db_active_match = await session.get(ActiveMatch, active_match_id)
@@ -116,7 +118,7 @@ async def update_active_match(
 
 
 @router.delete("/active_matches/{active_match_id}/", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an active match by ID")
-async def delete_active_match(active_match_id: int):
+async def delete_active_match(active_match_id: int, api_key: str = Depends(verify_api_key)):
     async with AsyncSession(engine) as session:
         active_match = await session.get(ActiveMatch, active_match_id)
         if not active_match:
@@ -126,7 +128,7 @@ async def delete_active_match(active_match_id: int):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @router.delete("/active_matches/uuid/{match_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete an active match by UUID")
-async def delete_active_match_by_uuid(match_id: str):
+async def delete_active_match_by_uuid(match_id: str, api_key: str = Depends(verify_api_key)):
     async with AsyncSession(engine) as session:
         active_match = await session.exec(
             select(ActiveMatch).where(ActiveMatch.match_uuid == match_id)

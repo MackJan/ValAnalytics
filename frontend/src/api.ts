@@ -22,7 +22,9 @@ api.interceptors.request.use((config) => {
 export interface ActiveMatch {
     id: number;
     match_uuid: string;
-    started_at: string;
+    created_at: string;
+    game_map: string;
+    game_mode: string;
 }
 
 export interface ActiveMatchCreate {

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request, WebSocket, APIRouter
+from fastapi import FastAPI, Request, WebSocket, APIRouter, HTTPException, status, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +12,7 @@ from .database import init_db, engine
 from .api import router as api_router
 from .models import ActiveMatch
 from .websocket import ConnectionManager
+from .auth import api_key_auth, verify_websocket_api_key
 import time, logging
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
@@ -92,12 +93,27 @@ def create_app() -> FastAPI:
             content={"status_code":10422, "message": exc_str, "data": None},
         )
 
+    # Auth info endpoint
+    @app.get("/api/auth/info")
+    async def get_auth_info():
+        """Get authentication information"""
+        return {
+            "api_key": api_key_auth.get_api_key(),
+            "auth_type": "api_key",
+            "header_format": "Authorization: Bearer <api_key>"
+        }
+
     # include routers
     app.include_router(api_router, prefix="/api")
 
     # websocket endpoints
     @app.websocket("/ws/agent/{match_uuid}")
-    async def agent_websocket_endpoint(websocket: WebSocket, match_uuid: str):
+    async def agent_websocket_endpoint(websocket: WebSocket, match_uuid: str, api_key: str = Query(...)):
+        # Verify API key for WebSocket connection
+        if not verify_websocket_api_key(api_key):
+            await websocket.close(code=4001, reason="Invalid API key")
+            return
+
         await manager.connect_agent(match_uuid, websocket)
         try:
             while True:
