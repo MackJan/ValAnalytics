@@ -108,18 +108,25 @@ jobs:
           # Login to GitHub Container Registry
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
-          # Create .env file with image tags and secrets (using lowercase repo owner)
+          # Extract the latest tag from the build outputs
+          BACKEND_IMAGE=$(echo '${{ needs.build-and-push.outputs.backend-image }}' | grep ':latest' || echo '${{ needs.build-and-push.outputs.backend-image }}' | head -n1)
+          FRONTEND_IMAGE=$(echo '${{ needs.build-and-push.outputs.frontend-image }}' | grep ':latest' || echo '${{ needs.build-and-push.outputs.frontend-image }}' | head -n1)
+          
+          echo "Backend image: $BACKEND_IMAGE"
+          echo "Frontend image: $FRONTEND_IMAGE"
+          
+          # Create .env file with actual image tags from build
           cat > .env << EOF
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           VPT_API_KEY=${{ secrets.VPT_API_KEY }}
-          BACKEND_IMAGE=ghcr.io/${{ needs.build-and-push.outputs.repo-owner-lower }}/performancetracker/backend:latest
-          FRONTEND_IMAGE=ghcr.io/${{ needs.build-and-push.outputs.repo-owner-lower }}/performancetracker/frontend:latest
+          BACKEND_IMAGE=$BACKEND_IMAGE
+          FRONTEND_IMAGE=$FRONTEND_IMAGE
           EOF
           
-          # Pull the latest images explicitly (using lowercase repo owner)
-          docker pull ghcr.io/${{ needs.build-and-push.outputs.repo-owner-lower }}/performancetracker/backend:latest
-          docker pull ghcr.io/${{ needs.build-and-push.outputs.repo-owner-lower }}/performancetracker/frontend:latest
+          # Pull the latest images explicitly
+          docker pull $BACKEND_IMAGE
+          docker pull $FRONTEND_IMAGE
           
           # Stop and remove old containers
           docker compose down
