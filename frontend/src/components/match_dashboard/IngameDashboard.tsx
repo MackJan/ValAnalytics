@@ -1,7 +1,10 @@
 import React from 'react';
 import type {MatchData, CurrentMatchPlayer} from "./Dashboard.tsx";
+import {useNavigate} from "react-router-dom";
 
 const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
+    const navigate = useNavigate();
+
     const {match} = matchData;
 
     const team1Score = match.party_owner_score;
@@ -18,6 +21,10 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
     return (
         <div className="min-h-screen bg-gray-100 p-8">
             <div className="max-w-6xl mx-auto space-y-6">
+                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition duration-200"
+                onClick={() => {navigate("/live");}}>
+                    <i className="fas fa-arrow-left mr-2"></i> Back to Dashboard
+                </button>
                 {/* Top Info Card - Single row layout matching the image */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8">
                     <div className="grid grid-cols-3 gap-8 text-center">
