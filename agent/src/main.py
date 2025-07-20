@@ -14,13 +14,14 @@ import websockets
 import json
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
 req = Requests()
 
-base_url = "http://janmack.de:8000/api"
-ws_url = "ws://janmack.de:8000/ws"
+base_url = f"https://{os.getenv("BASE_URL")}/api"
+ws_url = f"ws://{os.getenv("BASE_URL")}/ws"
 
 # API Key for authentication - get this from backend startup logs
 API_KEY = os.getenv("VPT_API_KEY")
@@ -259,11 +260,11 @@ async def run_agent():
                 # checking if discord rpc is present
                 if last_rpc_update is None:
                     last_rpc_update = match_data
-                    rpc.set_match_presence(match_data, int(time.time()))
+                    rpc.set_match_presence(match_data, int(time.time()), base_url=base_url)
 
                 # if the match data has changed, update the discord rpc
                 if dicts_differ(last_rpc_update, match_data):
-                    rpc.set_match_presence(match_data)
+                    rpc.set_match_presence(match_data, base_url=base_url)
                     last_rpc_update = match_data
 
                 if match_data and match_data.match_uuid:

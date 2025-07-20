@@ -64,7 +64,7 @@ class DiscordRPC:
         except Exception as e:
             print(f"Failed to update Discord presence: {e}")
 
-    def set_match_presence(self, match_data:CurrentMatch, start_time:int = None):
+    def set_match_presence(self, match_data:CurrentMatch, start_time:int = None, base_url:str = "http://localhost/live/"):
         """Set presence based on match data"""
         if not match_data or not match_data.match_uuid:
             return
@@ -85,7 +85,7 @@ class DiscordRPC:
                 small_text=match_data.players[0].character if match_data.players else None,
                 party_size=[match_data.party_size,5],
                 instance=True,
-                buttons=[{"label": "Live Stats", "url": f"http://localhost:5173/live/{match_data.match_uuid}"}]
+                buttons=[{"label": "Live Stats", "url": f"{base_url}{match_data.match_uuid}"}]
             )
 
         except Exception as e:
