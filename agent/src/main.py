@@ -1,17 +1,21 @@
 import datetime
-import logging
 import time
-
 from agent.src.models import EnhancedJSONEncoder
 from datetime import timezone
-from agent_helper import *
 from presence import Presence, decode_presence
 from discord_rpc import DiscordRPC
 import asyncio
-from constants import *
-import dataclasses
-from models import CurrentMatch, CurrentMatchPlayer
+from req import Requests
+from models import CurrentMatch
 import logging
+from match import Match
+import requests
+import websockets
+import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 req = Requests()
 
@@ -19,19 +23,19 @@ base_url = "http://janmack.de:8000/api"
 ws_url = "ws://janmack.de:8000/ws"
 
 # API Key for authentication - get this from backend startup logs
-API_KEY = "vpt_P3qdpJWYqrfoE4POJWRtjVS6m4T7PG4bP2LtfW8wme4"  # Replace with actual API key
+API_KEY = os.getenv("VPT_API_KEY")
 
 req.get_headers()
 m = Match()
 p = Presence(req)
 rpc = DiscordRPC()
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Create logger properly
 logger = logging.getLogger(__name__)
+
 
 def get_headers():
     """Get headers with API key authentication"""
@@ -40,6 +44,7 @@ def get_headers():
         'Authorization': f'Bearer {API_KEY}'
     }
 
+
 async def create_active_match_via_api(match_data: CurrentMatch):
     """
     Create an active match with players via API call
@@ -47,7 +52,6 @@ async def create_active_match_via_api(match_data: CurrentMatch):
     # Prepare the payload for the API
 
     game_start_dt = datetime.fromtimestamp(match_data.game_start, tz=timezone.utc) if match_data.game_start else None
-
 
     payload = {
         "match_uuid": match_data.match_uuid,
@@ -92,20 +96,24 @@ async def create_active_match_via_api(match_data: CurrentMatch):
         logger.error(f"Failed to create active match: {response.status_code} - {response.text}")
         return False
 
+
 async def end_active_match(match_uuid):
     """End an active match entry in the backend"""
     try:
         end_payload = {"ended_at": datetime.now(timezone.utc).isoformat()}
-        end_response = requests.delete(f"{base_url}/active_matches/uuid/{match_uuid}/", json=end_payload, headers=get_headers())
+        end_response = requests.delete(f"{base_url}/active_matches/uuid/{match_uuid}/", json=end_payload,
+                                       headers=get_headers())
         if end_response.status_code == 200:
             logger.info(f"Successfully ended active match {match_uuid}")
             return True
 
-        logger.error(f"Could not find or end active match {match_uuid}. Status code: {end_response.status_code} - {end_response.text}")
+        logger.error(
+            f"Could not find or end active match {match_uuid}. Status code: {end_response.status_code} - {end_response.text}")
         return False
     except Exception as e:
         logger.error(f"Error ending active match: {str(e)}")
         return False
+
 
 async def send_initial_match_data(ws, match_uuid, match_data):
     """Send initial match data to populate the database"""
@@ -123,6 +131,7 @@ async def send_initial_match_data(ws, match_uuid, match_data):
     except Exception as e:
         logger.error(f"Error sending initial match data: {str(e)}")
         return False
+
 
 async def run_agent():
     match_uuid = None
@@ -200,13 +209,13 @@ async def run_agent():
                     last_rpc_update = None
                     ws = None
 
-
             if last_game_state != "MENUS":
                 last_game_state = "MENUS"
                 party_data = decode_presence(p.get_private_presence(p.get_presence()))
                 presence_data = {
                     "state": "Menus",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data[
+                        "isValid"] else "Solo",
                     "start": int(datetime.now(timezone.utc).timestamp()),
                     "large_image": "logo",
                 }
@@ -224,7 +233,8 @@ async def run_agent():
                 party_data = decode_presence(p.get_private_presence(p.get_presence()))
                 presence_data = {
                     "state": "Pregame",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data[
+                        "isValid"] else "Solo",
                     "start": int(datetime.now(timezone.utc).timestamp()),
                     "large_image": "logo",
                 }
@@ -252,10 +262,9 @@ async def run_agent():
                     rpc.set_match_presence(match_data, int(time.time()))
 
                 # if the match data has changed, update the discord rpc
-                if  dicts_differ(last_rpc_update, match_data):
+                if dicts_differ(last_rpc_update, match_data):
                     rpc.set_match_presence(match_data)
                     last_rpc_update = match_data
-
 
                 if match_data and match_data.match_uuid:
                     last_match_uuid = match_data.match_uuid
@@ -298,7 +307,6 @@ async def run_agent():
                             logger.info("No new data to send, skipping...")
                             await asyncio.sleep(5)
                             continue
-
 
                     message = {
                         "type": "match_update",
