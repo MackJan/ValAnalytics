@@ -20,9 +20,9 @@ load_dotenv()
 
 req = Requests()
 
-base_url = f"https://{os.getenv("BASE_URL")}/api"
+base_url = f"http://{os.getenv("BASE_URL")}/api"
 ws_url = f"ws://{os.getenv("BASE_URL")}/ws"
-
+web_url = os.getenv("WEB_URL")
 # API Key for authentication - get this from backend startup logs
 API_KEY = os.getenv("VPT_API_KEY")
 
@@ -260,11 +260,11 @@ async def run_agent():
                 # checking if discord rpc is present
                 if last_rpc_update is None:
                     last_rpc_update = match_data
-                    rpc.set_match_presence(match_data, int(time.time()), base_url=base_url)
+                    rpc.set_match_presence(match_data, int(time.time()), base_url=web_url)
 
                 # if the match data has changed, update the discord rpc
                 if dicts_differ(last_rpc_update, match_data):
-                    rpc.set_match_presence(match_data, base_url=base_url)
+                    rpc.set_match_presence(match_data, base_url=web_url)
                     last_rpc_update = match_data
 
                 if match_data and match_data.match_uuid:

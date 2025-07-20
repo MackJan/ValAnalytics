@@ -85,7 +85,7 @@ class DiscordRPC:
                 small_text=match_data.players[0].character if match_data.players else None,
                 party_size=[match_data.party_size,5],
                 instance=True,
-                buttons=[{"label": "Live Stats", "url": f"{base_url}{match_data.match_uuid}"}]
+                buttons=[{"label": "Live Stats", "url": f"{base_url}/live/{match_data.match_uuid}"}]
             )
 
         except Exception as e:
