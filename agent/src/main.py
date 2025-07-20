@@ -15,8 +15,12 @@ import logging
 
 req = Requests()
 
-base_url = "http://localhost:8000/api"
-ws_url = "ws://localhost:8000/ws/agent"
+base_url = "http://janmack.de:8000/api"
+ws_url = "ws://janmack.de:8000/ws"
+
+# API Key for authentication - get this from backend startup logs
+API_KEY = "vpt_P3qdpJWYqrfoE4POJWRtjVS6m4T7PG4bP2LtfW8wme4"  # Replace with actual API key
+
 req.get_headers()
 m = Match()
 p = Presence(req)
@@ -28,6 +32,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 # Create logger properly
 logger = logging.getLogger(__name__)
+
+def get_headers():
+    """Get headers with API key authentication"""
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {API_KEY}'
+    }
 
 async def create_active_match_via_api(match_data: CurrentMatch):
     """
@@ -69,7 +80,7 @@ async def create_active_match_via_api(match_data: CurrentMatch):
             }
             payload["players"].append(player_data)
 
-    response = requests.post(f"{base_url}/active_matches/", json=payload)
+    response = requests.post(f"{base_url}/active_matches/", json=payload, headers=get_headers())
     if response.status_code == 201:
         logger.info(f"Successfully created active match entry for {match_data.match_uuid}")
         return True
@@ -84,20 +95,13 @@ async def create_active_match_via_api(match_data: CurrentMatch):
 async def end_active_match(match_uuid):
     """End an active match entry in the backend"""
     try:
-        # First get the active match ID
-        response = requests.get(f"{base_url}/active_matches/")
-        if response.status_code == 200:
-            active_matches = response.json()
-            for match in active_matches:
-                if match["match_uuid"] == match_uuid and not match.get("ended_at"):
-                    # End this match
-                    end_payload = {"ended_at": datetime.now(timezone.utc).isoformat()}
-                    end_response = requests.patch(f"{base_url}/active_matches/{match['id']}/", json=end_payload)
-                    if end_response.status_code == 200:
-                        logger.info(f"Successfully ended active match {match_uuid}")
-                        return True
-                    break
-        logger.error(f"Could not find or end active match {match_uuid}")
+        end_payload = {"ended_at": datetime.now(timezone.utc).isoformat()}
+        end_response = requests.delete(f"{base_url}/active_matches/uuid/{match_uuid}/", json=end_payload, headers=get_headers())
+        if end_response.status_code == 200:
+            logger.info(f"Successfully ended active match {match_uuid}")
+            return True
+
+        logger.error(f"Could not find or end active match {match_uuid}. Status code: {end_response.status_code} - {end_response.text}")
         return False
     except Exception as e:
         logger.error(f"Error ending active match: {str(e)}")
@@ -126,6 +130,8 @@ async def run_agent():
     last_update = None
     last_rpc_update = None
     init = True
+    last_game_state = None
+    last_match_uuid = None
     req.get_headers()
 
     message_queue = asyncio.Queue()
@@ -185,34 +191,50 @@ async def run_agent():
         elif game_state == "MENUS":
             logger.info("In menus, waiting for game to start...")
 
-            party_data = decode_presence(p.get_private_presence(p.get_presence()))
-            presence_data = {
-                "state": "Menus",
-                "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
-                "start": int(datetime.now(timezone.utc).timestamp()),
-                "large_image": "logo",
-            }
+            if last_game_state == "INGAME":
+                # If we were in-game, end the active match
+                if match_uuid is not None:
+                    await end_active_match(match_uuid)
+                    match_uuid = None
+                    last_update = None
+                    last_rpc_update = None
+                    ws = None
 
-            rpc.set_presence(**presence_data)
+
+            if last_game_state != "MENUS":
+                last_game_state = "MENUS"
+                party_data = decode_presence(p.get_private_presence(p.get_presence()))
+                presence_data = {
+                    "state": "Menus",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                    "start": int(datetime.now(timezone.utc).timestamp()),
+                    "large_image": "logo",
+                }
+
+                rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
             continue
 
         elif game_state == "PREGAME":
             logger.info("In pregame, waiting for match to start...")
-            party_data = decode_presence(p.get_private_presence(p.get_presence()))
-            presence_data = {
-                "state": "Pregame",
-                "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
-                "start": int(datetime.now(timezone.utc).timestamp()),
-                "large_image": "logo",
-            }
 
-            rpc.set_presence(**presence_data)
+            if last_game_state != "PREGAME":
+                last_game_state = "PREGAME"
+                party_data = decode_presence(p.get_private_presence(p.get_presence()))
+                presence_data = {
+                    "state": "Pregame",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data["isValid"] else "Solo",
+                    "start": int(datetime.now(timezone.utc).timestamp()),
+                    "large_image": "logo",
+                }
+
+                rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
             pass
         elif game_state == "INGAME":
+            last_game_state = "INGAME"
             try:
                 if last_update is None:
                     match_data = m.get_current_match_details(init=init)
@@ -236,6 +258,7 @@ async def run_agent():
 
 
                 if match_data and match_data.match_uuid:
+                    last_match_uuid = match_data.match_uuid
                     current_match_uuid = match_data.match_uuid
 
                     # Only reconnect if match ID changed or connection is closed
@@ -244,9 +267,9 @@ async def run_agent():
                         if ws:
                             await ws.close()
 
-                        # Connect to new match
+                        # Connect to new match with API key
                         match_uuid = current_match_uuid
-                        ws = await websockets.connect(f"{ws_url}/{match_uuid}")
+                        ws = await websockets.connect(f"{ws_url}/agent/{match_uuid}?api_key={API_KEY}")
                         logger.info(f"Connected to WebSocket for match {match_uuid}")
 
                         # Start listening for incoming messages
@@ -302,7 +325,6 @@ async def run_agent():
             except Exception as e:
                 logger.error(f"Error in agent loop: {str(e)}")
                 ws = None
-                raise e
 
             await asyncio.sleep(10)
         else:

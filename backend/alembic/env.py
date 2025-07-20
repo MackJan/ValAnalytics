@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 from sqlmodel import SQLModel
-from app.database import DATABASE_URL
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -31,9 +30,10 @@ target_metadata = SQLModel.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-database_url = "postgresql+asyncpg://postgres:postgres@postgres:5432/valorant"
+
+# Get database URL from environment variable or use default
+database_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@postgres:5432/valorant")
 config.set_main_option("sqlalchemy.url", database_url)
-fileConfig(config.config_file_name)
 
 
 def run_migrations_offline():
@@ -53,7 +53,6 @@ def do_run_migrations(connection: Connection):
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        # if you use render_as_batch for sqlite, pass that here too
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -72,14 +71,6 @@ async def run_migrations_online():
     async with connectable.connect() as conn:
         await conn.run_sync(do_run_migrations)
     await connectable.dispose()
-
-
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    import asyncio
-    asyncio.run(run_migrations_online())
-
 
 
 if context.is_offline_mode():
