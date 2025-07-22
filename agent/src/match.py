@@ -1,3 +1,5 @@
+from shutil import which
+
 from agent.src import req
 from user import Users
 import urllib3
@@ -33,7 +35,7 @@ class Match:
 
         return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
-    def get_current_match_details(self, init: bool = False) -> (Optional[CurrentMatch],Optional[CurrentMatchPlayer]):
+    def get_current_match_details(self, init: bool = False) -> (Optional[CurrentMatch], Optional[CurrentMatchPlayer]):
         match_id = self.get_current_match_id()
         if not match_id:
             self.logger.debug("No current match found.")
@@ -69,14 +71,14 @@ class Match:
                     rank="placeholder"
                 )
 
-
-
         if init:
             party_owner_average_rank_num = 0
+            party_owner_players = 0
             party_owner_enemy_average_rank_num = 0
+            party_owner_enemy_players = 0
 
             for p in data["Players"]:
-                rank,rank_num = self.get_rank_by_uuid(p["Subject"])
+                rank, rank_num = self.get_rank_by_uuid(p["Subject"])
 
                 players.append(
                     CurrentMatchPlayer(
@@ -95,15 +97,20 @@ class Match:
                 )
 
                 if p["TeamID"] == player.team_id:
-                    party_owner_average_rank_num += rank_num
+                    if rank_num != 0:
+                        party_owner_average_rank_num += rank_num
+                        party_owner_players += 1
                 else:
-                    party_owner_enemy_average_rank_num += rank_num
+                    if rank_num != 0:
+                        party_owner_enemy_average_rank_num += rank_num
+                        party_owner_enemy_players += 1
 
-                party_owner_enemy_average_rank = self.get_rank_by_id(
-                    int(party_owner_enemy_average_rank_num / len(data["Players"]) if data["Players"] else 0))[
-                    "tierName"]
-                party_owner_average_rank = \
-                self.get_rank_by_id(int(party_owner_average_rank_num / len(data["Players"]) if data["Players"] else 0))[
+            party_owner_enemy_average_rank = self.get_rank_by_id(
+                int(party_owner_enemy_average_rank_num / party_owner_enemy_players if data["Players"] else 0))[
+                "tierName"]
+            party_owner_average_rank = \
+                self.get_rank_by_id(
+                    int(party_owner_average_rank_num / party_owner_players if data["Players"] else 0))[
                     "tierName"]
 
         return CurrentMatch(
@@ -167,7 +174,7 @@ class Match:
     def get_rank_by_id(self, rank_id: int):
         return ranks.get(rank_id, "Unranked")
 
-    def get_rank_by_uuid(self, uuid: str) -> (dict,int):
+    def get_rank_by_uuid(self, uuid: str) -> (dict, int):
         try:
             data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
             if not data:
@@ -182,4 +189,4 @@ class Match:
             return ret, latest_rank
 
         except Exception:
-            return {"rank": "Unranked", "rr": None}
+            return {"rank": "Unranked", "rr": None}, 0
