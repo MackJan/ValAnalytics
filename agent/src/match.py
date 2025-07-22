@@ -36,6 +36,7 @@ class Match:
         return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
     def get_current_match_details(self, init: bool = False) -> (Optional[CurrentMatch], Optional[CurrentMatchPlayer]):
+
         match_id = self.get_current_match_id()
         if not match_id:
             self.logger.debug("No current match found.")
@@ -80,6 +81,7 @@ class Match:
             for p in data["Players"]:
                 rank, rank_num = self.get_rank_by_uuid(p["Subject"])
 
+
                 players.append(
                     CurrentMatchPlayer(
                         subject=p["Subject"],
@@ -111,6 +113,7 @@ class Match:
             party_owner_average_rank = \
                 self.get_rank_by_id(
                     int(party_owner_average_rank_num / party_owner_players if data["Players"] else 0))[
+
                     "tierName"]
 
         return CurrentMatch(
@@ -175,6 +178,7 @@ class Match:
         return ranks.get(rank_id, "Unranked")
 
     def get_rank_by_uuid(self, uuid: str) -> (dict, int):
+
         try:
             data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
             if not data:
@@ -190,3 +194,4 @@ class Match:
 
         except Exception:
             return {"rank": "Unranked", "rr": None}, 0
+

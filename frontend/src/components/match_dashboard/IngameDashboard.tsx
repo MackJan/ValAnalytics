@@ -61,6 +61,7 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                 <div className="w-5 h-5 bg-blue-500 rounded-full"></div>
                                 <span
                                     className="font-semibold text-gray-800 text-lg">Average Rank: {match.party_owner_average_rank || "Unranked"}</span>
+
                             </div>
                         </div>
 
@@ -73,6 +74,7 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                             className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center">
                                             <div
                                                 className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+
                                                 {player.agent_icon ? (
                                                     <img
                                                         src={player.agent_icon}
@@ -138,6 +140,7 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                     <div className="text-right">
                                         <div
                                             className="text-sm font-semibold text-gray-800">{player.rank || "Immortal 3"}</div>
+
                                         <div className="text-xs text-gray-500">{player.account_level || "Hidden"}</div>
                                     </div>
                                 </div>
