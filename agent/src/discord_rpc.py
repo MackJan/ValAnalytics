@@ -2,9 +2,11 @@ from pypresence import Presence
 import time
 import nest_asyncio
 from models import *
+import logging
 
 client_id = "1389311125681606666"
 nest_asyncio.apply()
+
 
 class DiscordRPC:
     def __init__(self):
@@ -64,12 +66,13 @@ class DiscordRPC:
         except Exception as e:
             print(f"Failed to update Discord presence: {e}")
 
-    def set_match_presence(self, match_data:CurrentMatch, start_time:int = None, base_url:str = "http://localhost/live/"):
+    def set_match_presence(self, match_data:CurrentMatch, player: CurrentMatchPlayer, start_time:int = None, base_url:str = "http://localhost/live/"):
         """Set presence based on match data"""
         if not match_data or not match_data.match_uuid:
             return
 
         try:
+            print(f"Setting match presence for {match_data.match_uuid}\n {match_data}\n {player}")
             self.last_update_id = match_data.match_uuid
 
             state = "Solo" if match_data.party_size == 1 else "In a party"
@@ -81,8 +84,8 @@ class DiscordRPC:
                 start=int(time.time()),
                 large_image=match_data.game_map.lower(),
                 large_text=match_data.game_map,
-                small_image=match_data.players[0].character.lower().replace("/", "") if match_data.players else None,
-                small_text=match_data.players[0].character if match_data.players else None,
+                small_image=player.character.lower().replace("/", ""),
+                small_text=player.character,
                 party_size=[match_data.party_size,5],
                 instance=True,
                 buttons=[{"label": "Live Stats", "url": f"{base_url}/live/{match_data.match_uuid}"}]

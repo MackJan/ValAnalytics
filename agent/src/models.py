@@ -60,6 +60,9 @@ class CurrentMatch:
     party_owner_score: int
     party_owner_enemy_score: int
     party_size: int
+    party_owner_team_id: str
+    party_owner_average_rank: Optional[str] = None
+    party_owner_enemy_average_rank: Optional[str] = None
     players: List[CurrentMatchPlayer] = field(default_factory=list)
 
 @dataclass

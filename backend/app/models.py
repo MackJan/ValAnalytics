@@ -14,6 +14,9 @@ class ActiveMatch(SQLModel, table=True):
     state: str = Field(description="Current state of the match, e.g. 'In Progress'", nullable=True)
     party_owner_score: int = Field(description="Score of the party owner", nullable=True)
     party_owner_enemy_score: int = Field(description="Score of the enemy party owner", nullable=True)
+    party_owner_average_rank: Optional[str] = Field(default=None, description="Average rank of the party owner", nullable=True)
+    party_owner_enemy_average_rank: Optional[str] = Field(default=None, description="Average rank of the enemy party owner", nullable=True)
+    party_owner_team_id: Optional[str] = Field(default=None, description="Team ID of the party owner", nullable=True)
     party_size: int = Field(description="Size of the party", nullable=True)
     players: Optional[List["ActiveMatchPlayer"]] = Relationship(
         back_populates="match",

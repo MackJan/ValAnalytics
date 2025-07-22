@@ -3,9 +3,11 @@ import secrets
 from typing import Optional
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+from dotenv import load_dotenv
 # Generate a default API key if not set in environment
 DEFAULT_API_KEY = "vpt_" + secrets.token_urlsafe(32)
+
+load_dotenv()
 
 class APIKeyAuth:
     def __init__(self):

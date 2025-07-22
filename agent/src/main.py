@@ -20,8 +20,8 @@ load_dotenv()
 
 req = Requests()
 
-base_url = f"http://{os.getenv("BASE_URL")}/api"
-ws_url = f"ws://{os.getenv("BASE_URL")}/ws"
+base_url = f"http://{os.getenv('BASE_URL')}/api"
+ws_url = f"ws://{os.getenv('BASE_URL')}/ws"
 web_url = os.getenv("WEB_URL")
 # API Key for authentication - get this from backend startup logs
 API_KEY = os.getenv("VPT_API_KEY")
@@ -62,6 +62,9 @@ async def create_active_match_via_api(match_data: CurrentMatch):
         "state": match_data.state,
         "party_owner_score": match_data.party_owner_score,
         "party_owner_enemy_score": match_data.party_owner_enemy_score,
+        "party_owner_average_rank": match_data.party_owner_average_rank,
+        "party_owner_enemy_average_rank": match_data.party_owner_enemy_average_rank,
+        "party_owner_team_id": match_data.party_owner_team_id,
         "party_size": match_data.party_size,
         "players": []
     }
@@ -86,6 +89,7 @@ async def create_active_match_via_api(match_data: CurrentMatch):
             payload["players"].append(player_data)
 
     response = requests.post(f"{base_url}/active_matches/", json=payload, headers=get_headers())
+    logger.info(f"Creating active match entry for {match_data.match_uuid} with payload: {json.dumps(payload, cls=EnhancedJSONEncoder)}")
     if response.status_code == 201:
         logger.info(f"Successfully created active match entry for {match_data.match_uuid}")
         return True
@@ -139,9 +143,10 @@ async def run_agent():
     ws = None
     last_update = None
     last_rpc_update = None
-    init = True
     last_game_state = None
     last_match_uuid = None
+    active_match_created = False  # Track if we've created the active match via API
+    initial_data_sent = False     # Track if we've sent initial WebSocket data
     req.get_headers()
 
     message_queue = asyncio.Queue()
@@ -171,7 +176,7 @@ async def run_agent():
                             update_message = {
                                 "type": "match_update",
                                 "match_uuid": match_uuid,
-                                "data": last_update,  # Send the object directly, not JSON string
+                                "data": last_update,
                                 "timestamp": datetime.now(timezone.utc).isoformat()
                             }
 
@@ -189,38 +194,45 @@ async def run_agent():
                 logger.error(f"Error handling WebSocket message: {raw}")
                 logger.error(f"Error in message handler: {str(e)}")
                 raise e
-                break
+
+    def reset_match_state():
+        """Reset all match-related state variables"""
+        nonlocal match_uuid, ws, last_update, last_rpc_update, active_match_created, initial_data_sent
+        match_uuid = None
+        ws = None
+        last_update = None
+        last_rpc_update = None
+        active_match_created = False
+        initial_data_sent = False
 
     while True:
         presence = p.get_presence()
         game_state = p.get_game_state(presence)
+
         if game_state is None or game_state == "None":
             logger.info("No game state found, waiting for presence update...")
             await asyncio.sleep(5)
             continue
+
         elif game_state == "MENUS":
             logger.info("In menus, waiting for game to start...")
 
-            if last_game_state == "INGAME":
-                # If we were in-game, end the active match
-                if match_uuid is not None:
-                    await end_active_match(match_uuid)
-                    match_uuid = None
-                    last_update = None
-                    last_rpc_update = None
-                    ws = None
+            # Clean up when transitioning from INGAME to MENUS
+            if last_game_state == "INGAME" and match_uuid is not None:
+                await end_active_match(match_uuid)
+                if ws:
+                    await ws.close()
+                reset_match_state()
 
             if last_game_state != "MENUS":
                 last_game_state = "MENUS"
                 party_data = decode_presence(p.get_private_presence(p.get_presence()))
                 presence_data = {
                     "state": "Menus",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data[
-                        "isValid"] else "Solo",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
                     "start": int(datetime.now(timezone.utc).timestamp()),
                     "large_image": "logo",
                 }
-
                 rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
@@ -234,113 +246,125 @@ async def run_agent():
                 party_data = decode_presence(p.get_private_presence(p.get_presence()))
                 presence_data = {
                     "state": "Pregame",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data[
-                        "isValid"] else "Solo",
+                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
                     "start": int(datetime.now(timezone.utc).timestamp()),
                     "large_image": "logo",
                 }
-
                 rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
-            pass
+            continue
+
         elif game_state == "INGAME":
             last_game_state = "INGAME"
             try:
-                if last_update is None:
-                    match_data = m.get_current_match_details(init=init)
-                else:
-                    match_data = m.get_current_match_details()
-                init = False
+                # Get current match data
+                match_data, player = m.get_current_match_details(init=not active_match_created)
+
                 if match_data is None:
                     logger.info("No match data found, waiting for next update...")
                     await asyncio.sleep(5)
                     continue
 
-                # checking if discord rpc is present
-                if last_rpc_update is None:
-                    last_rpc_update = match_data
-                    rpc.set_match_presence(match_data, int(time.time()), base_url=web_url)
+                current_match_uuid = match_data.match_uuid
 
-                # if the match data has changed, update the discord rpc
-                if dicts_differ(last_rpc_update, match_data):
-                    rpc.set_match_presence(match_data, base_url=web_url)
-                    last_rpc_update = match_data
-
-                if match_data and match_data.match_uuid:
-                    last_match_uuid = match_data.match_uuid
-                    current_match_uuid = match_data.match_uuid
-
-                    # Only reconnect if match ID changed or connection is closed
-                    if current_match_uuid != match_uuid or ws is None:
-                        # Close previous connection if exists
+                # Handle new match or first time in this match
+                if current_match_uuid != match_uuid:
+                    # Clean up previous match if exists
+                    if match_uuid is not None:
+                        await end_active_match(match_uuid)
                         if ws:
                             await ws.close()
 
-                        # Connect to new match with API key
-                        match_uuid = current_match_uuid
+                    # Reset state for new match
+                    reset_match_state()
+                    match_uuid = current_match_uuid
+
+                    # Step 1: Create active match entry via API (only once per match)
+                    logger.info(f"Creating new active match entry for {match_uuid}")
+                    success = await create_active_match_via_api(match_data)
+                    if success:
+                        active_match_created = True
+                        logger.info(f"Active match created successfully for {match_uuid}")
+                    else:
+                        logger.error(f"Failed to create active match for {match_uuid}")
+                        await asyncio.sleep(5)
+                        continue
+
+                    # Step 2: Connect to WebSocket
+                    try:
                         ws = await websockets.connect(f"{ws_url}/agent/{match_uuid}?api_key={API_KEY}")
                         logger.info(f"Connected to WebSocket for match {match_uuid}")
 
                         # Start listening for incoming messages
                         asyncio.create_task(handle_ws_messages(ws))
 
-                        # Create an active match entry in the backend
-                        await create_active_match_via_api(match_data)
+                        # Step 3: Send initial data via WebSocket (different from API data)
+                        if not initial_data_sent:
+                            await send_initial_match_data(ws, match_uuid, match_data)
+                            initial_data_sent = True
+                            last_update = match_data
 
-                        # Send initial match data to populate the database
-                        await send_initial_match_data(ws, match_uuid, match_data)
-                        last_update = match_data
+                            # Wait for acknowledgment
+                            try:
+                                response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
+                                logger.info(f"Received acknowledgment for initial data: {response}")
+                            except asyncio.TimeoutError:
+                                logger.info("No acknowledgment received for initial data")
 
-                        # Wait for acknowledgment of initial data
-                        try:
-                            response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
-                            logger.info(f"Received acknowledgment for initial data: {response}")
-                        except asyncio.TimeoutError:
-                            logger.info("No acknowledgment received for initial data")
-
-                        # Skip the regular update this time since we just sent initial data
-                        await asyncio.sleep(10)
+                    except Exception as e:
+                        logger.error(f"Failed to connect to WebSocket: {str(e)}")
+                        await asyncio.sleep(5)
                         continue
 
-                    if last_update is not None:
-                        if not dicts_differ(match_data, last_update):
-                            logger.info("No new data to send, skipping...")
-                            await asyncio.sleep(5)
-                            continue
+                # Handle Discord RPC updates
+                if last_rpc_update is None:
+                    rpc.set_match_presence(match_data, player=player, start_time=int(time.time()), base_url=web_url)
+                    last_rpc_update = match_data
+                elif dicts_differ(last_rpc_update, match_data):
+                    rpc.set_match_presence(match_data, player=player, base_url=web_url)
+                    last_rpc_update = match_data
 
-                    message = {
-                        "type": "match_update",
-                        "match_uuid": match_uuid,
-                        "data": match_data,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
+                # Handle WebSocket updates (only send if data has changed)
+                if ws and initial_data_sent:
+                    if last_update is None or dicts_differ(match_data, last_update):
+                        message = {
+                            "type": "match_update",
+                            "match_uuid": match_uuid,
+                            "data": match_data,
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
 
-                    await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
-                    last_update = match_data
+                        await ws.send(json.dumps(message, cls=EnhancedJSONEncoder))
+                        last_update = match_data
+                        logger.info(f"Sent live data update for match {match_uuid}")
 
-                    logger.info(f"Sent live data for match {match_uuid}: {message}")
-
-                    # Wait for acknowledgment from the queue
-                    try:
-                        response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
-                        logger.info(f"Received response: {response}")
-                    except asyncio.TimeoutError:
-                        logger.warning("No acknowledgment received")
+                        # Wait for acknowledgment
+                        try:
+                            response = await asyncio.wait_for(message_queue.get(), timeout=2.0)
+                            logger.info(f"Received response: {response}")
+                        except asyncio.TimeoutError:
+                            logger.warning("No acknowledgment received for update")
+                    else:
+                        logger.info("No new data to send, skipping WebSocket update...")
 
             except websockets.exceptions.ConnectionClosed:
                 logger.info("WebSocket connection closed, will reconnect on next loop")
                 ws = None
+                initial_data_sent = False
             except Exception as e:
                 logger.error(f"Error in agent loop: {str(e)}")
                 ws = None
+                initial_data_sent = False
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
         else:
-            # If the game state is not in-game, end the active match
+            # Handle other game states - clean up if needed
             if match_uuid is not None:
                 await end_active_match(match_uuid)
-                match_uuid = None
+                if ws:
+                    await ws.close()
+                reset_match_state()
 
             await asyncio.sleep(5)
 

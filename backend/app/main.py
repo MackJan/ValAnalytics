@@ -40,6 +40,8 @@ async def update_model_from_json(model_instance, json_data: dict):
     model_fields = set(model_instance.model_fields.keys())
 
     for field, value in json_data.items():
+        if value is None:
+            continue  # Skip None values
         if field in model_fields and hasattr(model_instance, field):
             # Handle datetime conversion for game_start field
             if field == "game_start" and isinstance(value, (int, float)):
@@ -209,6 +211,9 @@ def create_app() -> FastAPI:
                         "state": active_match.state,
                         "party_owner_score": active_match.party_owner_score,
                         "party_owner_enemy_score": active_match.party_owner_enemy_score,
+                        "party_owner_average_rank": active_match.party_owner_average_rank,
+                        "party_owner_enemy_average_rank": active_match.party_owner_enemy_average_rank,
+                        "party_owner_team_id": active_match.party_owner_team_id,
                         "party_size": active_match.party_size,
                         "players": []
                     }
