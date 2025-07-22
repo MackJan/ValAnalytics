@@ -3,6 +3,9 @@ import Home from "./Home";
 import Sidebar from "./components/sidebar/Sidebar.tsx";
 import {LiveDashboard} from "./components/match_dashboard/Dashboard.tsx";
 import ActiveMatches from "./components/match_dashboard/ActiveMatches.tsx";
+import MatchHistory from "./components/match_history/MatchHistory.tsx";
+import About from "./components/about/About.tsx";
+import Download from "./components/download/Download.tsx";
 
 import {
     BrowserRouter as Router,
@@ -23,6 +26,9 @@ const App = () => {
                             path="/live/:matchUuid"
                             element={<LiveDashboard/>}
                         />
+                        <Route path="/history" element={<MatchHistory/>}/>
+                        <Route path="/about" element={<About/>}/>
+                        <Route path="/download" element={<Download/>}/>
                     </Routes>
                 </div>
             </div>
