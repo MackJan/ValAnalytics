@@ -7,6 +7,7 @@ from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_
     get_agent_icon
 from models import *
 from constants import *
+
 urllib3.disable_warnings()
 
 
@@ -32,7 +33,7 @@ class Match:
 
         return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
-    def get_current_match_details(self,init:bool=False) -> Optional[CurrentMatch]:
+    def get_current_match_details(self, init: bool = False) -> (Optional[CurrentMatch],Optional[CurrentMatchPlayer]):
         match_id = self.get_current_match_id()
         if not match_id:
             self.logger.debug("No current match found.")
@@ -44,15 +45,38 @@ class Match:
         match_stats = {
             k: v
             for k, v in presence.items()
-            if k in {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam", "partyOwnerMatchScoreEnemyTeam"}
+            if k in {"sessionLoopState", "matchMap", "partySize", "partyOwnerMatchScoreAllyTeam",
+                     "partyOwnerMatchScoreEnemyTeam"}
         }
 
         players = []
+        player = None
         puuids = [p["Subject"] for p in data["Players"]]
         names = get_multiple_names_from_puuid(puuids, self.requests)
+
+        for p in data["Players"]:
+            if p["Subject"] == self.user.user.puuid:
+                player = CurrentMatchPlayer(
+                    subject=p["Subject"],
+                    character=get_agent_name(p["CharacterID"]),
+                    team_id=p["TeamID"],
+                    game_name=names.get(p["Subject"], "Unknown Player"),
+                    account_level=p["PlayerIdentity"].get("AccountLevel"),
+                    player_card_id=p["PlayerIdentity"].get("PlayerCardID"),
+                    player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
+                    preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
+                    agent_icon=get_agent_icon(p["CharacterID"]),
+                    rank="placeholder"
+                )
+
+
+
         if init:
+            party_owner_average_rank_num = 0
+            party_owner_enemy_average_rank_num = 0
+
             for p in data["Players"]:
-                rank = self.get_rank_by_uuid(p["Subject"])
+                rank,rank_num = self.get_rank_by_uuid(p["Subject"])
 
                 players.append(
                     CurrentMatchPlayer(
@@ -67,9 +91,20 @@ class Match:
                         agent_icon=get_agent_icon(p["CharacterID"]),
                         rank=rank["rank"],
                         rr=rank["rr"],
-
                     )
                 )
+
+                if p["TeamID"] == player.team_id:
+                    party_owner_average_rank_num += rank_num
+                else:
+                    party_owner_enemy_average_rank_num += rank_num
+
+                party_owner_enemy_average_rank = self.get_rank_by_id(
+                    int(party_owner_enemy_average_rank_num / len(data["Players"]) if data["Players"] else 0))[
+                    "tierName"]
+                party_owner_average_rank = \
+                self.get_rank_by_id(int(party_owner_average_rank_num / len(data["Players"]) if data["Players"] else 0))[
+                    "tierName"]
 
         return CurrentMatch(
             match_uuid=data["MatchID"],
@@ -79,9 +114,12 @@ class Match:
             state=data["State"],
             party_owner_score=match_stats.get("partyOwnerMatchScoreAllyTeam", 0),
             party_owner_enemy_score=match_stats.get("partyOwnerMatchScoreEnemyTeam", 0),
+            party_owner_average_rank=party_owner_average_rank if init else None,
+            party_owner_enemy_average_rank=party_owner_enemy_average_rank if init else None,
+            party_owner_team_id=player.team_id,
             party_size=match_stats.get("partySize", 1),
             players=players,
-        )
+        ), player
 
     def get_match_details(self, match_id: str) -> SingleMatch:
         match = self.requests.fetch("pd", f"/match-details/v1/matches/{match_id}", "get")
@@ -113,7 +151,6 @@ class Match:
             players=players,
         )
 
-
     def get_current_match_id(self) -> str:
         match = self.requests.fetch("glz", f"/core-game/v1/players/{self.user.user.puuid}", "get")
 
@@ -130,7 +167,7 @@ class Match:
     def get_rank_by_id(self, rank_id: int):
         return ranks.get(rank_id, "Unranked")
 
-    def get_rank_by_uuid(self, uuid: str) -> dict:
+    def get_rank_by_uuid(self, uuid: str) -> (dict,int):
         try:
             data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
             if not data:
@@ -142,7 +179,7 @@ class Match:
                 "rank": self.get_rank_by_id(latest_rank).get("tierName", "Unranked"),
                 "rr": latest_rr,
             }
-            return ret
+            return ret, latest_rank
 
         except Exception:
             return {"rank": "Unranked", "rr": None}

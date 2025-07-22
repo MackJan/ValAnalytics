@@ -26,6 +26,9 @@ export interface CurrentMatch {
     state: string;
     party_owner_score: number;
     party_owner_enemy_score: number;
+    party_owner_average_rank: string;
+    party_owner_enemy_average_rank: string;
+    party_owner_team_id: string;
     party_size: number;
     players: CurrentMatchPlayer[];
 }
@@ -60,6 +63,10 @@ export const LiveDashboard: React.FC = () => {
 
     // Use useRef instead of useState for initial player data
     const initialPlayerDataRef = useRef<CurrentMatchPlayer[] | null>(null);
+    const initialPartyOwnerAverageRankRef = useRef<string | null>(null);
+    const initialPartyOwnerEnemyAverageRankRef = useRef<string | null>(null);
+    const initialPartyOwnerTeamIdRef = useRef<string | null>(null);
+
     const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -72,6 +79,9 @@ export const LiveDashboard: React.FC = () => {
 
         // Reset initial player data when connecting to new match
         initialPlayerDataRef.current = null;
+        initialPartyOwnerAverageRankRef.current = null;
+        initialPartyOwnerEnemyAverageRankRef.current = null;
+        initialPartyOwnerTeamIdRef.current = null;
 
         console.log("Connecting to WebSocket for match:", uuid);
 
@@ -94,6 +104,9 @@ export const LiveDashboard: React.FC = () => {
                                 const currentMatch = eventData.data as CurrentMatch;
                                 // Store in ref for immediate access
                                 initialPlayerDataRef.current = currentMatch.players;
+                                initialPartyOwnerAverageRankRef.current = currentMatch.party_owner_average_rank;
+                                initialPartyOwnerEnemyAverageRankRef.current = currentMatch.party_owner_enemy_average_rank;
+                                initialPartyOwnerTeamIdRef.current = currentMatch.party_owner_team_id;
                                 setMatchData({
                                     match: currentMatch
                                 });
@@ -107,6 +120,16 @@ export const LiveDashboard: React.FC = () => {
                                 if (initialPlayerDataRef.current && initialPlayerDataRef.current.length > 0) {
                                     currentMatch.players = initialPlayerDataRef.current;
                                 }
+                                if (initialPartyOwnerAverageRankRef.current) {
+                                    currentMatch.party_owner_average_rank = initialPartyOwnerAverageRankRef.current;
+                                }
+                                if (initialPartyOwnerEnemyAverageRankRef.current) {
+                                    currentMatch.party_owner_enemy_average_rank = initialPartyOwnerEnemyAverageRankRef.current;
+                                }
+                                if (initialPartyOwnerTeamIdRef.current) {
+                                    currentMatch.party_owner_team_id = initialPartyOwnerTeamIdRef.current;
+                                }
+
 
                         setMatchData({
                             match: currentMatch

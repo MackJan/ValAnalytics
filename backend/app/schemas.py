@@ -11,6 +11,9 @@ class ActiveMatchCreate(BaseModel):
     state: Optional[str] = None
     party_owner_score: Optional[int] = None
     party_owner_enemy_score: Optional[int] = None
+    party_owner_average_rank: Optional[str] = None
+    party_owner_enemy_average_rank: Optional[str] = None
+    party_owner_team_id: Optional[str] = None
     party_size: Optional[int] = None
     players: Optional[List["ActiveMatchPlayerCreate"]] = None
 
@@ -42,6 +45,9 @@ class ActiveMatchRead(BaseModel):
     state: Optional[str] = None
     party_owner_score: Optional[int] = None
     party_owner_enemy_score: Optional[int] = None
+    party_owner_average_rank: Optional[str] = None
+    party_owner_enemy_average_rank: Optional[str] = None
+    party_owner_team_id: Optional[str] = None
     party_size: Optional[int] = None
     players: Optional[List["ActiveMatchPlayerRead"]] = None
 
