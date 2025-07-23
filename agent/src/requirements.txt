@@ -1,0 +1,6 @@
+nest_asyncio==1.6.0
+pypresence==4.3.0
+python-dotenv==1.1.1
+Requests==2.32.4
+urllib3==2.5.0
+websockets==15.0.1
