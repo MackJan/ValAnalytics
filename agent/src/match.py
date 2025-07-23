@@ -1,6 +1,4 @@
-from shutil import which
-
-from agent.src import req
+import req
 from user import Users
 import urllib3
 import logging
@@ -108,11 +106,11 @@ class Match:
                         party_owner_enemy_players += 1
 
             party_owner_enemy_average_rank = self.get_rank_by_id(
-                int(party_owner_enemy_average_rank_num / party_owner_enemy_players if data["Players"] else 0))[
+                int(party_owner_enemy_average_rank_num / party_owner_enemy_players if party_owner_enemy_players != 0 else 0))[
                 "tierName"]
             party_owner_average_rank = \
                 self.get_rank_by_id(
-                    int(party_owner_average_rank_num / party_owner_players if data["Players"] else 0))[
+                    int(party_owner_average_rank_num / party_owner_players if party_owner_players != 0 else 0))[
 
                     "tierName"]
 

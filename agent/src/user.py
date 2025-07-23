@@ -1,4 +1,4 @@
-from agent.src import req
+import req
 from models import *
 
 class Users:

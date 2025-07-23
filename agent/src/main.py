@@ -1,6 +1,6 @@
 import datetime
 import time
-from agent.src.models import EnhancedJSONEncoder
+from models import EnhancedJSONEncoder
 from datetime import timezone
 from presence import Presence, decode_presence
 from discord_rpc import DiscordRPC
