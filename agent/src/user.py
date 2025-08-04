@@ -16,11 +16,7 @@ class Users:
             game_name=session["game_name"],
             game_tag=session["game_tag"],
             name=session["name"],
-            region="eu",
+            region="eu"
         )
         return user
 
-    def get_party(self):
-        party = self.requests.fetch("glz", f"/parties/v1/players/{self.user['puuid']}", "get")
-        print(f"#### Party: {party}")
-        return party["CurrentPartyID"]

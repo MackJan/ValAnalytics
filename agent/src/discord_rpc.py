@@ -42,7 +42,7 @@ class DiscordRPC:
             except Exception as e:
                 print(f"Error during disconnect: {e}")
 
-    def set_presence(self, state=None, details=None, start=None, large_image=None, large_text=None, small_image=None, small_text=None):
+    def set_presence(self, state=None, details=None, start=None, large_image=None, large_text=None, small_image=None, small_text=None,party_size=None):
         """Update Discord presence with given parameters"""
         if not self.connected:
             if not self.connect():
@@ -50,8 +50,6 @@ class DiscordRPC:
                 return
 
         try:
-
-            # Build presence data, only including non-None values
             presence_data = {
                 "state": state,
                 "details": details,
@@ -59,10 +57,11 @@ class DiscordRPC:
                 "large_image": large_image,
                 "large_text": large_text,
                 "small_image": small_image,
-                "small_text": small_text
+                "small_text": small_text,
+                "party_size": party_size,
             }
 
-            self.presence.update(**presence_data)
+            self.presence.update(**presence_data, instance=True, party_id="abc")
         except Exception as e:
             print(f"Failed to update Discord presence: {e}")
 

@@ -84,3 +84,6 @@ class User:
     game_tag: str
     name: str
     region: str
+    rank: Optional[str] = None
+    rr: Optional[int] = None
+    leaderboard_rank: Optional[int] = None

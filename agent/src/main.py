@@ -15,6 +15,7 @@ import json
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from constants import rpc_game_modes
 
 load_dotenv()
 
@@ -204,6 +205,7 @@ async def run_agent():
         last_rpc_update = None
         active_match_created = False
         initial_data_sent = False
+    party_id = p.get_party(m.user.user.puuid)
 
     while True:
         presence = p.get_presence()
@@ -216,6 +218,7 @@ async def run_agent():
 
         elif game_state == "MENUS":
             logger.info("In menus, waiting for game to start...")
+            party_state = p.get_party_state(party_id)
 
             # Clean up when transitioning from INGAME to MENUS
             if last_game_state == "INGAME" and match_uuid is not None:
@@ -224,16 +227,18 @@ async def run_agent():
                     await ws.close()
                 reset_match_state()
 
-            if last_game_state != "MENUS":
-                last_game_state = "MENUS"
-                party_data = decode_presence(p.get_private_presence(p.get_presence()))
-                presence_data = {
-                    "state": "Menus",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
-                    "start": int(datetime.now(timezone.utc).timestamp()),
-                    "large_image": "logo",
-                }
-                rpc.set_presence(**presence_data)
+
+            last_game_state = "MENUS"
+            party_data = decode_presence(p.get_private_presence(p.get_presence()))
+            print(party_state["queueId"])
+            presence_data = {
+                "state": "In Menu" if party_state["state"] == "DEFAULT" else "In Queue",
+                "details": rpc_game_modes.get(party_state["queueId"]),
+                "party_size": [1 if party_data.get("partySize")==0 else party_data.get("partySize"),5],
+                "start": int(datetime.now(timezone.utc).timestamp()),
+                "large_image": "logo",
+            }
+            rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
             continue

@@ -155,3 +155,13 @@ ranks = {
         "smallIcon": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/27/smallicon.png",
     },
 }
+
+rpc_game_modes = {
+    "spikerush": "Spikerush",
+    "unrated": "Unrated",
+    "swiftplay": "Swiftplay",
+    "competitive": "Competitive",
+    "deathmatch": "Deathmatch",
+    "ggteam": "Escalation",
+    "hurm": "Team Deathmatch"
+}
