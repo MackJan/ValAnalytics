@@ -1,3 +1,5 @@
+import datetime
+
 import req
 from user import Users
 import urllib3
@@ -7,6 +9,7 @@ from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_
     get_agent_icon
 from models import *
 from constants import *
+import time
 
 urllib3.disable_warnings()
 
@@ -121,7 +124,7 @@ class Match:
         return CurrentMatch(
             match_uuid=data["MatchID"],
             game_map=get_map_name(data["MapID"]),
-            game_start=data.get("GameStartMillis", 0),
+            game_start=datetime.datetime.now().isoformat(),
             game_mode=self.get_current_gamemode(),
             state=data["State"],
             party_owner_score=match_stats.get("partyOwnerMatchScoreAllyTeam", 0),

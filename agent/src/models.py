@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass, field
 from typing import List, Optional
 import json
@@ -54,7 +55,7 @@ class SingleMatch:
 class CurrentMatch:
     match_uuid: str
     game_map: str
-    game_start: int
+    game_start: str
     game_mode: str
     state: str
     party_owner_score: int

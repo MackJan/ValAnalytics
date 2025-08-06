@@ -6,7 +6,7 @@ class ActiveMatchCreate(BaseModel):
     """Schema for creating a new active match"""
     match_uuid: str
     game_map: Optional[str] = None
-    game_start: Optional[int] = None
+    game_start: Optional[datetime] = None
     game_mode: Optional[str] = None
     state: Optional[str] = None
     party_owner_score: Optional[int] = None

@@ -48,10 +48,10 @@ const ActiveMatches: React.FC = () => {
         const diffMins = Math.floor(diffMs / 60000);
 
         if (diffMins < 1) return 'Just started';
-        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffMins < 60) return `Started ${diffMins}m ago`;
 
         const diffHours = Math.floor(diffMins / 60);
-        return `${diffHours}h ${diffMins % 60}m ago`;
+        return `Started ${diffHours}h ${diffMins % 60}m ago`;
     };
 
     if (loading) {
@@ -115,7 +115,7 @@ const ActiveMatches: React.FC = () => {
                                         <h3 className="text-xl font-bold text-gray-800 mb-2">
                                             {match.game_mode} - {match.game_map}
                                         </h3>
-                                        <p className="text-gray-500 mb-1">Started {formatTime(match.created_at)}</p>
+                                        <p className="text-gray-500 mb-1">{formatTime(match.game_start)}</p>
                                         <p className="text-gray-400 text-sm font-mono">
                                             {match.match_uuid.slice(0, 8)}...
                                         </p>
