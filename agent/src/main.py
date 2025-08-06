@@ -262,7 +262,7 @@ async def run_agent():
                 "details": f"{pregame_data["Mode"]} | Pregame",
                 "large_image": pregame_data["Map"].lower(),
                 "large_text": f"{pregame_data["Map"]}",
-                "small_image": pregame_data["Character"].lower() if pregame_data["Character"] != "" else None,
+                "small_image": pregame_data["Character"].lower().replace("/", "") if pregame_data["Character"] != "" else None,
                 "small_text": f"Locked {pregame_data["Character"]}" if pregame_data["CharacterSelectionState"] == "locked" else f"Selected {pregame_data["Character"]}",
                 "party_size": [party_data.get("partySize", 1),5]
             }
