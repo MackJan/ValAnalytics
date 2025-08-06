@@ -23,6 +23,7 @@ export interface ActiveMatch {
     id: number;
     match_uuid: string;
     created_at: string;
+    game_start: string;
     game_map: string;
     game_mode: string;
 }

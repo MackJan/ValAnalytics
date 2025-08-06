@@ -61,12 +61,11 @@ async def create_active_match_via_api(match_data: CurrentMatch):
     """
     # Prepare the payload for the API
 
-    game_start_dt = datetime.fromtimestamp(match_data.game_start, tz=timezone.utc) if match_data.game_start else None
 
     payload = {
         "match_uuid": match_data.match_uuid,
         "game_map": match_data.game_map,
-        "game_start": game_start_dt.isoformat() if game_start_dt else None,
+        "game_start": match_data.game_start,
         "game_mode": match_data.game_mode,
         "state": match_data.state,
         "party_owner_score": match_data.party_owner_score,
@@ -175,12 +174,26 @@ async def run_agent():
         while True:
             try:
                 raw = await ws.recv()
-                msg = json.loads(raw) if raw != "ACK" else "ACK"
+                # Handle different response types
+                if raw == "ACK":
+                    msg = "ACK"
+                elif raw == "ERROR":
+                    msg = "ERROR"
+                else:
+                    try:
+                        msg = json.loads(raw)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Received non-JSON message: {raw}")
+                        msg = raw
 
                 if msg == "ACK":
                     # Put acknowledgment in queue
                     await message_queue.put("ACK")
-                elif msg.get("type") == "request_data":
+                elif msg == "ERROR":
+                    # Put error in queue
+                    logger.error(f"Received ERROR response from backend")
+                    await message_queue.put("ERROR")
+                elif isinstance(msg, dict) and msg.get("type") == "request_data":
                     try:
                         if match_uuid and last_update:
                             update_message = {

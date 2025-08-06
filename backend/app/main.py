@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import FastAPI, Request, WebSocket, APIRouter, HTTPException, status, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -7,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.websockets import WebSocketDisconnect
+import datetime
 
 from .database import init_db, engine
 from .api import router as api_router
@@ -44,15 +43,26 @@ async def update_model_from_json(model_instance, json_data: dict):
             continue  # Skip None values
         if field in model_fields and hasattr(model_instance, field):
             # Handle datetime conversion for game_start field
-            if field == "game_start" and isinstance(value, (int, float)):
-                # Check if timestamp is in milliseconds (> year 2001 in seconds)
-                if value > 1000000000000:  # milliseconds timestamp
-                    value = datetime.fromtimestamp(value / 1000, tz=timezone.utc)
-                else:  # seconds timestamp
-                    value = datetime.fromtimestamp(value, tz=timezone.utc)
+            if field == "game_start":
+                if isinstance(value, str):
+                    # Handle ISO string format
+                    try:
+                        # Parse ISO string and convert to timezone-naive datetime
+                        value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        value = value.replace(tzinfo=None)
+                    except ValueError as e:
+                        logger.error(f"Failed to parse game_start ISO string: {value}, error: {e}")
+                        continue
+                elif isinstance(value, (int, float)):
+                    # Handle numeric timestamp
+                    # Check if timestamp is in milliseconds (> year 2001 in seconds)
+                    if value > 1000000000000:  # milliseconds timestamp
+                        value = datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+                    else:  # seconds timestamp
+                        value = datetime.fromtimestamp(value, tz=timezone.utc)
 
-                # Convert to timezone-naive datetime for PostgreSQL
-                value = value.replace(tzinfo=None)
+                    # Convert to timezone-naive datetime for PostgreSQL
+                    value = value.replace(tzinfo=None)
 
             setattr(model_instance, field, value)
 
@@ -137,7 +147,6 @@ def create_app() -> FastAPI:
                         # If match_data is a string (JSON), parse it
                         if isinstance(match_data, str):
                             try:
-                                import json
                                 match_data = json.loads(match_data)
                             except json.JSONDecodeError as e:
                                 logger.info(f"Failed to parse match_data JSON: {e}")
