@@ -19,6 +19,10 @@ class Match:
         self.logger.setLevel(logging.DEBUG)
         self.presence = Presence(self.requests)
 
+        user_rank, _ = self.get_rank_by_uuid(self.user.user.puuid)
+        self.user.user.rank =  user_rank["rank"]
+        self.user.user.rr = user_rank["rr"]
+
     def get_own_match_history(self, last: int = 10) -> MatchHistory:
         match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user.puuid}", "get")
         match_history = match_history["History"][:last]
