@@ -41,10 +41,7 @@ class Requests:
 
             if url_type == "glz":
                 response = requests.request(method, self.glz_url + endpoint, headers=self.get_headers(), verify=False)
-                if not response.ok:
-                    time.sleep(5)
-                    self.headers = {}
-                    self.fetch(url_type, endpoint, method)
+
                 return response.json()
             elif url_type == "pd":
                 response = requests.request(method, self.pd_url + endpoint, headers=self.get_headers(), verify=False)

@@ -1,5 +1,7 @@
 import datetime
 import time
+
+from agent.src.name_service import get_map_name
 from models import EnhancedJSONEncoder
 from datetime import timezone
 from presence import Presence, decode_presence
@@ -16,6 +18,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from constants import rpc_game_modes
+from pregame import Pregame
 
 load_dotenv()
 
@@ -31,6 +34,7 @@ req.get_headers()
 m = Match()
 p = Presence(req)
 rpc = DiscordRPC()
+pre = Pregame()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -146,6 +150,7 @@ async def run_agent():
     last_rpc_update = None
     last_game_state = None
     last_match_uuid = None
+
     active_match_created = False  # Track if we've created the active match via API
     initial_data_sent = False     # Track if we've sent initial WebSocket data
     req.get_headers()
@@ -230,7 +235,6 @@ async def run_agent():
 
             last_game_state = "MENUS"
             party_data = decode_presence(p.get_private_presence(p.get_presence()))
-            print(party_state["queueId"])
             presence_data = {
                 "state": "In Menu" if party_state["state"] == "DEFAULT" else "In Queue",
                 "details": rpc_game_modes.get(party_state["queueId"]),
@@ -245,22 +249,30 @@ async def run_agent():
 
         elif game_state == "PREGAME":
             logger.info("In pregame, waiting for match to start...")
+            pregame_data = pre.get_pregame_info()
+            if pregame_data is None:
+                await asyncio.sleep(5)
+                continue
 
-            if last_game_state != "PREGAME":
-                last_game_state = "PREGAME"
-                party_data = decode_presence(p.get_private_presence(p.get_presence()))
-                presence_data = {
-                    "state": "Pregame",
-                    "details": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
-                    "start": int(datetime.now(timezone.utc).timestamp()),
-                    "large_image": "logo",
-                }
-                rpc.set_presence(**presence_data)
+            last_game_state = "PREGAME"
+
+            party_data = decode_presence(p.get_private_presence(p.get_presence()))
+            presence_data = {
+                "state": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
+                "details": f"{pregame_data["Mode"]} | Pregame",
+                "large_image": pregame_data["Map"].lower(),
+                "large_text": f"{pregame_data["Map"]}",
+                "small_image": pregame_data["Character"].lower() if pregame_data["Character"] != "" else None,
+                "small_text": f"Locked {pregame_data["Character"]}" if pregame_data["CharacterSelectionState"] == "locked" else f"Selected {pregame_data["Character"]}",
+                "party_size": [party_data.get("partySize", 1),5]
+            }
+            rpc.set_presence(**presence_data)
 
             await asyncio.sleep(5)
             continue
 
         elif game_state == "INGAME":
+            logger.info("Ingame")
             last_game_state = "INGAME"
             try:
                 # Get current match data
