@@ -1,7 +1,6 @@
 import datetime
 import time
 
-from agent.src.name_service import get_map_name
 from models import EnhancedJSONEncoder
 from datetime import timezone
 from presence import Presence, decode_presence
@@ -24,11 +23,20 @@ load_dotenv()
 
 req = Requests()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Create logger properly
+logger = logging.getLogger(__name__)
+
 base_url = f"http://{os.getenv('BASE_URL')}/api"
 ws_url = f"ws://{os.getenv('BASE_URL')}/ws"
 web_url = os.getenv("WEB_URL")
 # API Key for authentication - get this from backend startup logs
 API_KEY = os.getenv("VPT_API_KEY")
+
+if not API_KEY or not web_url:
+    logger.error("ENV not set correctly")
 
 req.get_headers()
 m = Match()
@@ -36,11 +44,7 @@ p = Presence(req)
 rpc = DiscordRPC()
 pre = Pregame()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# Create logger properly
-logger = logging.getLogger(__name__)
 
 
 def get_headers():
@@ -259,12 +263,12 @@ async def run_agent():
             party_data = decode_presence(p.get_private_presence(p.get_presence()))
             presence_data = {
                 "state": "Party Size: " + str(party_data.get("partySize", 0)) if party_data.get("isValid") else "Solo",
-                "details": f"{pregame_data["Mode"]} | Pregame",
-                "large_image": pregame_data["Map"].lower(),
-                "large_text": f"{pregame_data["Map"]}",
-                "small_image": pregame_data["Character"].lower().replace("/", "") if pregame_data["Character"] != "" else None,
-                "small_text": f"Locked {pregame_data["Character"]}" if pregame_data["CharacterSelectionState"] == "locked" else f"Selected {pregame_data["Character"]}",
-                "party_size": [party_data.get("partySize", 1),5]
+                "details": f"{pregame_data['Mode']} | Pregame",
+                "large_image": pregame_data['Map'].lower(),
+                "large_text": f"{pregame_data['Map']}",
+                "small_image": pregame_data['Character'].lower().replace("/", "") if pregame_data["Character"] != "" else None,
+                "small_text": f"Locked {pregame_data['Character']}" if pregame_data["CharacterSelectionState"] == "locked" else f"Selected {pregame_data['Character']}",
+                "party_size": [party_data.get('partySize', 1),5]
             }
             rpc.set_presence(**presence_data)
 
