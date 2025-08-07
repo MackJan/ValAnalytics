@@ -23,7 +23,7 @@ class Match:
         self.presence = Presence(self.requests)
 
         user_rank, _ = self.get_rank_by_uuid(self.user.user.puuid)
-        self.user.user.rank =  user_rank["rank"]
+        self.user.user.rank = user_rank["rank"]
         self.user.user.rr = user_rank["rr"]
         self.match_start = {}
 
@@ -49,7 +49,7 @@ class Match:
             return None
 
         if match_id not in self.match_start.keys():
-            self.match_start = {match_id:datetime.datetime.now().isoformat()}
+            self.match_start = {match_id: datetime.datetime.now().isoformat()}
 
         presence = self.presence.get_private_presence(self.presence.get_presence())
         data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
@@ -90,7 +90,6 @@ class Match:
             for p in data["Players"]:
                 rank, rank_num = self.get_rank_by_uuid(p["Subject"])
 
-
                 players.append(
                     CurrentMatchPlayer(
                         subject=p["Subject"],
@@ -120,10 +119,7 @@ class Match:
                 int(party_owner_enemy_average_rank_num / party_owner_enemy_players if party_owner_enemy_players != 0 else 0))[
                 "tierName"]
             party_owner_average_rank = \
-                self.get_rank_by_id(
-                    int(party_owner_average_rank_num / party_owner_players if party_owner_players != 0 else 0))[
-
-                    "tierName"]
+                self.get_rank_by_id(int(party_owner_average_rank_num / party_owner_players if party_owner_players != 0 else 0))["tierName"]
 
         return CurrentMatch(
             match_uuid=data["MatchID"],
@@ -203,4 +199,3 @@ class Match:
 
         except Exception:
             return {"rank": "Unranked", "rr": None}, 0
-
