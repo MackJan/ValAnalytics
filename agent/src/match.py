@@ -25,6 +25,7 @@ class Match:
         user_rank, _ = self.get_rank_by_uuid(self.user.user.puuid)
         self.user.user.rank =  user_rank["rank"]
         self.user.user.rr = user_rank["rr"]
+        self.match_start = {}
 
     def get_own_match_history(self, last: int = 10) -> MatchHistory:
         match_history = self.requests.fetch("pd", f"/match-history/v1/history/{self.user.user.puuid}", "get")
@@ -46,6 +47,9 @@ class Match:
         if not match_id:
             self.logger.debug("No current match found.")
             return None
+
+        if match_id not in self.match_start.keys():
+            self.match_start = {match_id:datetime.datetime.now().isoformat()}
 
         presence = self.presence.get_private_presence(self.presence.get_presence())
         data = self.requests.fetch("glz", f"/core-game/v1/matches/{match_id}", "get")
@@ -124,7 +128,7 @@ class Match:
         return CurrentMatch(
             match_uuid=data["MatchID"],
             game_map=get_map_name(data["MapID"]),
-            game_start=datetime.datetime.now().isoformat(),
+            game_start=self.match_start[data["MatchID"]],
             game_mode=self.get_current_gamemode(),
             state=data["State"],
             party_owner_score=match_stats.get("partyOwnerMatchScoreAllyTeam", 0),
