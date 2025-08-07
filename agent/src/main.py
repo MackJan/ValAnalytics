@@ -152,7 +152,6 @@ async def run_agent():
     last_update = None
     last_rpc_update = None
     last_game_state = None
-    last_match_uuid = None
 
     active_match_created = False  # Track if we've created the active match via API
     initial_data_sent = False     # Track if we've sent initial WebSocket data
@@ -227,6 +226,7 @@ async def run_agent():
         last_rpc_update = None
         active_match_created = False
         initial_data_sent = False
+
     party_id = p.get_party(m.user.user.puuid)
 
     while True:

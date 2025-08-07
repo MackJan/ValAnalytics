@@ -4,20 +4,16 @@ from sqlmodel import select
 from .schemas import (
     ActiveMatchCreate, ActiveMatchRead, ActiveMatchUpdate
 )
-from .models import ActiveMatch
+from .models import ActiveMatch, ActiveMatchPlayer
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .database import engine
 from .auth import verify_api_key
-
 
 router = APIRouter()
 
 # Active Match Endpoints
 @router.post("/active_matches/", response_model=None, status_code=status.HTTP_201_CREATED)
 async def create_active_match(active_match: ActiveMatchCreate, api_key: str = Depends(verify_api_key)):
-    from .models import ActiveMatchPlayer
-    from sqlalchemy.orm import selectinload
-
     async with AsyncSession(engine) as session:
         # Check if a match with this UUID already exists
         existing_match = await session.exec(
