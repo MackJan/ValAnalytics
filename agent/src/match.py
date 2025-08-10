@@ -1,15 +1,11 @@
-import datetime
-
 import req
 from user import Users
 import urllib3
 import logging
 from presence import Presence
-from name_service import get_map_name, get_agent_name, get_name_from_puuid, get_multiple_names_from_puuid, \
-    get_agent_icon
+from name_service import get_map_name, get_agent_name, get_multiple_names_from_puuid, \
+    get_agent_icon, get_gamemodes_from_codename, get_rank_by_id
 from models import *
-from constants import *
-import time
 
 urllib3.disable_warnings()
 
@@ -115,11 +111,11 @@ class Match:
                         party_owner_enemy_average_rank_num += rank_num
                         party_owner_enemy_players += 1
 
-            party_owner_enemy_average_rank = self.get_rank_by_id(
+            party_owner_enemy_average_rank = get_rank_by_id(
                 int(party_owner_enemy_average_rank_num / party_owner_enemy_players if party_owner_enemy_players != 0 else 0))[
                 "tierName"]
             party_owner_average_rank = \
-                self.get_rank_by_id(int(party_owner_average_rank_num / party_owner_players if party_owner_players != 0 else 0))["tierName"]
+                get_rank_by_id(int(party_owner_average_rank_num / party_owner_players if party_owner_players != 0 else 0))["tierName"]
 
         return CurrentMatch(
             match_uuid=data["MatchID"],
@@ -151,7 +147,7 @@ class Match:
                 deaths=p.get("stats", {}).get("deaths", 0),
                 assists=p.get("stats", {}).get("assists", 0),
                 score=p.get("stats", {}).get("score", 0),
-                rank=self.get_rank_by_id(p["competitiveTier"]),
+                rank=get_rank_by_id(p["competitiveTier"])["tierName"],
 
             )
             for p in match["players"]
@@ -176,11 +172,10 @@ class Match:
 
     def get_current_gamemode(self):
         presence_data_raw = self.presence.get_private_presence(self.presence.get_presence())
-        gamemode = gamemodes.get(presence_data_raw["queueId"])
+        gamemode = get_gamemodes_from_codename(presence_data_raw["queueId"])
         return gamemode
 
-    def get_rank_by_id(self, rank_id: int):
-        return ranks.get(rank_id, "Unranked")
+
 
     def get_rank_by_uuid(self, uuid: str) -> (dict, int):
 
@@ -192,7 +187,7 @@ class Match:
             latest_rr = data["LatestCompetitiveUpdate"]["RankedRatingAfterUpdate"]
 
             ret = {
-                "rank": self.get_rank_by_id(latest_rank).get("tierName", "Unranked"),
+                "rank": get_rank_by_id(latest_rank).get("tierName", "Unranked"),
                 "rr": latest_rr,
             }
             return ret, latest_rank
