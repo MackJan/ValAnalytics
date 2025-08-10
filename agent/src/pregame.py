@@ -1,13 +1,12 @@
-import req
+from req import Requests
 from user import Users
-from match import Match
 from name_service import get_map_name, get_agent_name, get_gamemodes_from_codename
 
+
 class Pregame:
-    def __init__(self):
-        self.requests = req.Requests()
-        self.user = Users()
-        self.match = Match()
+    def __init__(self, requests: Requests, user: Users):
+        self.requests = requests
+        self.user = user
 
     def get_pregame_match_id(self):
         data = self.requests.fetch("glz",f"/pregame/v1/players/{self.user.user.puuid}","get")

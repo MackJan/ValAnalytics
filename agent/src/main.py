@@ -10,6 +10,7 @@ from req import Requests
 from models import CurrentMatch
 import logging
 from match import Match
+from user import Users
 import requests
 import websockets
 import json
@@ -38,11 +39,11 @@ API_KEY = os.getenv("VPT_API_KEY")
 if not API_KEY or not web_url:
     logger.error("ENV not set correctly")
 
-req.get_headers()
-m = Match()
+user = Users(req)
+m = Match(req, user)
 p = Presence(req)
 rpc = DiscordRPC()
-pre = Pregame()
+pre = Pregame(req, user)
 
 
 
@@ -155,8 +156,6 @@ async def run_agent():
 
     active_match_created = False  # Track if we've created the active match via API
     initial_data_sent = False     # Track if we've sent initial WebSocket data
-    req.get_headers()
-
     message_queue = asyncio.Queue()
 
     def dicts_differ(d1, d2):

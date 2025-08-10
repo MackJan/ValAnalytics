@@ -9,8 +9,9 @@ from typing import Optional, Dict, Any, Tuple, List
 
 class Requests:
     def __init__(self):
+        self.session = requests.Session()
         self.lockfile = self.get_lockfile()
-        self.headers = self.get_headers()
+        self.headers: Dict[str, str] = {}
         self.puuid = ""
         self.version = self.get_version()
         self.region = self.get_region()
@@ -18,61 +19,64 @@ class Requests:
         self.glz_url = f"https://glz-{self.region[1][0]}.{self.region[1][1]}.a.pvp.net"
         self.region = self.region[0]
 
-    def fetch(self, url_type: str, endpoint: str, method: str, jsonData=None):
-        try:
-            if method == "put" and json:
+    def fetch(self, url_type: str, endpoint: str, method: str, jsonData=None, retries: int = 3):
+        for _ in range(retries):
+            if not self.headers:
+                self.headers = self.get_headers()
+            try:
                 if url_type == "glz":
-                    response = requests.request(method, self.glz_url + endpoint, headers=self.get_headers(),
-                                                verify=False, json=jsonData)
-                    if not response.ok:
-                        time.sleep(5)
-                        self.headers = {}
-                        self.fetch(url_type, endpoint, method)
-                    return response.json()
+                    url = self.glz_url + endpoint
+                    response = self.session.request(
+                        method,
+                        url,
+                        headers=self.headers,
+                        verify=True,
+                        json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                    )
                 elif url_type == "pd":
-                    response = requests.request(method, self.pd_url + endpoint, headers=self.get_headers(),
-                                                verify=False, json=jsonData)
+                    url = self.pd_url + endpoint
+                    response = self.session.request(
+                        method,
+                        url,
+                        headers=self.headers,
+                        verify=True,
+                        json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                    )
+                elif url_type == "local":
+                    local_headers = {
+                        "Authorization": "Basic "
+                        + base64.b64encode(("riot:" + self.lockfile["password"]).encode()).decode()
+                    }
+                    url = f"https://127.0.0.1:{self.lockfile['port']}{endpoint}"
+                    response = self.session.request(method, url, headers=local_headers, verify=False)
+                elif url_type == "custom":
+                    url = endpoint
+                    response = self.session.request(
+                        method,
+                        url,
+                        headers=self.headers,
+                        verify=True,
+                        json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                    )
+                else:
+                    return None
 
-                    if not response.ok:
-                        time.sleep(5)
-                        self.headers = {}
-                        self.fetch(url_type, endpoint, method)
+                if response.ok:
                     return response.json()
 
-            if url_type == "glz":
-                response = requests.request(method, self.glz_url + endpoint, headers=self.get_headers(), verify=False)
-
-                return response.json()
-            elif url_type == "pd":
-                response = requests.request(method, self.pd_url + endpoint, headers=self.get_headers(), verify=False)
-
-                if not response.ok:
-                    print(f"Error fetching {url_type} data: {response.status_code} - {response.text}")
-                    time.sleep(5)
+                if response.status_code in {401, 403}:
                     self.headers = {}
-                    self.fetch(url_type, endpoint, method)
-                return response.json()
-            elif url_type == "local":
-                local_headers = {'Authorization': 'Basic ' + base64.b64encode(
-                    ('riot:' + self.lockfile['password']).encode()).decode()}
-                response = requests.request(method, f"https://127.0.0.1:{self.lockfile['port']}{endpoint}",
-                                            headers=local_headers,
-                                            verify=False)
 
-                return response.json()
-            elif url_type == "custom":
-                response = requests.request(method, f"{endpoint}", headers=self.get_headers(), verify=False)
+            except requests.RequestException:
+                pass
 
-                if not response.ok: self.headers = {}
-                return response.json()
-            return None
+            time.sleep(5)
 
-        except json.decoder.JSONDecodeError:
-            print(response)
-            print(response.text)
+        print(f"Error fetching {url_type} data: {response.status_code} - {response.text}")
+        return None
 
     def get_version(self):
-        data = requests.get(f'https://valorant-api.com/v1/version')
+        data = self.session.get('https://valorant-api.com/v1/version', verify=True)
         version = data.json()
         return version["data"]["riotClientVersion"]
 
@@ -106,8 +110,11 @@ class Requests:
         localAuthorization = {
             f'Authorization': 'Basic ' + base64.b64encode(('riot:' + self.lockfile["password"]).encode()).decode()}
 
-        data = requests.get(f'https://127.0.0.1:{self.lockfile["port"]}/entitlements/v1/token',
-                            headers=localAuthorization, verify=False)
+        data = self.session.get(
+            f'https://127.0.0.1:{self.lockfile["port"]}/entitlements/v1/token',
+            headers=localAuthorization,
+            verify=False,
+        )
         entitlements = data.json()
         self.puuid = entitlements["subject"]
         headers = {

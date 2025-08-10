@@ -1,18 +1,23 @@
-from typing import Any
+from typing import Any, Dict
 import requests
 import constants
 
-params={"isPlayableCharacter":"true", "language": "en-US"}
-agent_data = requests.get("https://valorant-api.com/v1/agents", params=params).json()
+params = {"isPlayableCharacter": "true", "language": "en-US"}
+_agents: Dict[str, Dict[str, str]] = {}
 
-agents = {}
-for a in agent_data["data"]:
-    agents[a["uuid"]] = {
-        "uuid": a["uuid"],
-        "name": a["displayName"],
-        "role": a["role"]["displayName"],
-        #"description": a["description"],
-        "icon": a["displayIcon"],}
+
+def load_agent_data() -> Dict[str, Dict[str, str]]:
+    """Download and cache agent metadata on demand."""
+    if not _agents:
+        data = requests.get("https://valorant-api.com/v1/agents", params=params).json()
+        for a in data.get("data", []):
+            _agents[a["uuid"]] = {
+                "uuid": a["uuid"],
+                "name": a["displayName"],
+                "role": a["role"]["displayName"],
+                "icon": a["displayIcon"],
+            }
+    return _agents
 
 def get_map_name(map_id: str) -> str:
     """
@@ -24,6 +29,7 @@ def get_agent_name(agent_id: str) -> str:
     """
     Get the agent name from the agent ID.
     """
+    agents = load_agent_data()
     return agents.get(agent_id, {}).get("name", agent_id)
 
 def get_name_from_puuid(puuid: str, req) -> dict[str, str | Any] | dict[str, str]:
@@ -48,9 +54,8 @@ def get_agent_icon(agent_id: str) -> str:
     """
     Get the agent icon from the agent ID.
     """
-    dct = agents.get(agent_id, {})
-
-    return dct.get("icon", "")
+    agents = load_agent_data()
+    return agents.get(agent_id, {}).get("icon", "")
 
 def get_gamemodes_from_codename(codename:str) -> str:
     return constants.gamemodes.get(codename)
@@ -59,4 +64,4 @@ def get_rank_by_id(rank_id: int) -> dict:
     return constants.ranks.get(rank_id, "Unranked")
 
 def get_rpc_gamemodes(gamemode:str) -> str:
-    return constants.rpc_game_modes.get(gamemode,gamemode)
+    return constants.rpc_game_modes.get(gamemode, gamemode)
