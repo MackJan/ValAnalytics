@@ -1,19 +1,31 @@
-import req
+from typing import Optional, Tuple
+from req import Requests
 from user import Users
-import urllib3
 import logging
+import datetime
 from presence import Presence
-from name_service import get_map_name, get_agent_name, get_multiple_names_from_puuid, \
-    get_agent_icon, get_gamemodes_from_codename, get_rank_by_id
-from models import *
-
-urllib3.disable_warnings()
+from name_service import (
+    get_map_name,
+    get_agent_name,
+    get_multiple_names_from_puuid,
+    get_agent_icon,
+    get_gamemodes_from_codename,
+    get_rank_by_id,
+)
+from models import (
+    BareMatch,
+    MatchHistory,
+    CurrentMatchPlayer,
+    CurrentMatch,
+    Player,
+    SingleMatch,
+)
 
 
 class Match:
-    def __init__(self):
-        self.requests = req.Requests()
-        self.user = Users()
+    def __init__(self, requests: Requests, user: Users):
+        self.requests = requests
+        self.user = user
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.presence = Presence(self.requests)
@@ -37,7 +49,9 @@ class Match:
 
         return MatchHistory(match_ids=matches, subject=self.user.user.puuid)
 
-    def get_current_match_details(self, init: bool = False) -> (Optional[CurrentMatch], Optional[CurrentMatchPlayer]):
+    def get_current_match_details(
+        self, init: bool = False
+    ) -> Tuple[Optional[CurrentMatch], Optional[CurrentMatchPlayer]]:
 
         match_id = self.get_current_match_id()
         if not match_id:

@@ -1,9 +1,10 @@
-import req
-from models import *
+from req import Requests
+from models import User
+
 
 class Users:
-    def __init__(self):
-        self.requests = req.Requests()
+    def __init__(self, requests: Requests):
+        self.requests = requests
         self.user = self.get_user()
         self.loadout = ""
 
