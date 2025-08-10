@@ -1,5 +1,6 @@
 from typing import Any
 import requests
+import constants
 
 params={"isPlayableCharacter":"true", "language": "en-US"}
 agent_data = requests.get("https://valorant-api.com/v1/agents", params=params).json()
@@ -17,20 +18,7 @@ def get_map_name(map_id: str) -> str:
     """
     Get the map name from the map ID.
     """
-    maps = {
-        "/Game/Maps/Ascent/Ascent": "Ascent",
-        "/Game/Maps/Duality/Duality": "Bind",
-        "/Game/Maps/Foxtrot/Foxtrot": "Breeze",
-        "/Game/Maps/Canyon/Canyon": "Fracture",
-        "/Game/Maps/Triad/Triad": "Haven",
-        "/Game/Maps/Port/Port": "Icebox",
-        "/Game/Maps/Jam/Jam": "Lotus",
-        "/Game/Maps/Pitt/Pitt": "Pearl",
-        "/Game/Maps/Bonsai/Bonsai": "Split",
-        "/Game/Maps/Rook/Rook": "Corrode",
-        "/Game/Maps/Infinity/Infinity": "Abyss"
-    }
-    return maps.get(map_id, map_id)
+    return constants.maps.get(map_id, map_id)
 
 def get_agent_name(agent_id: str) -> str:
     """
@@ -63,3 +51,12 @@ def get_agent_icon(agent_id: str) -> str:
     dct = agents.get(agent_id, {})
 
     return dct.get("icon", "")
+
+def get_gamemodes_from_codename(codename:str) -> str:
+    return constants.gamemodes.get(codename)
+
+def get_rank_by_id(rank_id: int) -> dict:
+    return constants.ranks.get(rank_id, "Unranked")
+
+def get_rpc_gamemodes(gamemode:str) -> str:
+    return constants.rpc_game_modes.get(gamemode,gamemode)

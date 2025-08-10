@@ -16,8 +16,8 @@ import json
 import os
 from dotenv import load_dotenv
 from datetime import datetime
-from constants import rpc_game_modes
 from pregame import Pregame
+from name_service import get_rpc_gamemodes
 
 load_dotenv()
 
@@ -254,7 +254,7 @@ async def run_agent():
             party_data = decode_presence(p.get_private_presence(p.get_presence()))
             presence_data = {
                 "state": "In Menu" if party_state["state"] == "DEFAULT" else "In Queue",
-                "details": rpc_game_modes.get(party_state["queueId"]),
+                "details": get_rpc_gamemodes(party_state["queueId"]),
                 "party_size": [1 if party_data.get("partySize")==0 else party_data.get("partySize"),5],
                 "start": int(datetime.now(timezone.utc).timestamp()),
                 "large_image": "logo",

@@ -1,8 +1,7 @@
 import req
 from user import Users
 from match import Match
-from name_service import get_map_name, get_agent_name
-from constants import gamemodes
+from name_service import get_map_name, get_agent_name, get_gamemodes_from_codename
 
 class Pregame:
     def __init__(self):
@@ -36,7 +35,7 @@ class Pregame:
                 "CharacterId": player["CharacterID"],
                 "CharacterSelectionState": player["CharacterSelectionState"],
                 "TimeRemainingNS": data["PhaseTimeRemainingNS"],
-                "Mode": gamemodes.get(data["QueueID"])
+                "Mode": get_gamemodes_from_codename(data["QueueID"])
             }
         except:
             return None

@@ -165,3 +165,18 @@ rpc_game_modes = {
     "ggteam": "Escalation",
     "hurm": "Team Deathmatch"
 }
+
+maps = {
+    "/Game/Maps/Juliett/Juliett": "Sunset",
+    "/Game/Maps/Ascent/Ascent": "Ascent",
+    "/Game/Maps/Duality/Duality": "Bind",
+    "/Game/Maps/Foxtrot/Foxtrot": "Breeze",
+    "/Game/Maps/Canyon/Canyon": "Fracture",
+    "/Game/Maps/Triad/Triad": "Haven",
+    "/Game/Maps/Port/Port": "Icebox",
+    "/Game/Maps/Jam/Jam": "Lotus",
+    "/Game/Maps/Pitt/Pitt": "Pearl",
+    "/Game/Maps/Bonsai/Bonsai": "Split",
+    "/Game/Maps/Rook/Rook": "Corrode",
+    "/Game/Maps/Infinity/Infinity": "Abyss"
+}
