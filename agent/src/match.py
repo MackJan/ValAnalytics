@@ -20,7 +20,9 @@ from models import (
     Player,
     SingleMatch,
 )
+import urllib3
 
+urllib3.disable_warnings()
 
 class Match:
     def __init__(self, requests: Requests, user: Users):

@@ -64,7 +64,7 @@ class Requests:
                 if response.ok:
                     return response.json()
 
-                if response.status_code in {401, 403}:
+                if response.status_code in {400, 401, 403}:
                     self.headers = {}
 
             except requests.RequestException:
