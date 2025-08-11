@@ -22,6 +22,8 @@ from name_service import get_rpc_gamemodes
 
 load_dotenv()
 
+TIMEOUT=2
+
 req = Requests()
 
 # Configure logging
@@ -234,7 +236,7 @@ async def run_agent():
 
         if game_state is None or game_state == "None":
             logger.info("No game state found, waiting for presence update...")
-            await asyncio.sleep(5)
+            await asyncio.sleep(TIMEOUT)
             continue
 
         elif game_state == "MENUS":
@@ -260,14 +262,14 @@ async def run_agent():
             }
             rpc.set_presence(**presence_data)
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(TIMEOUT)
             continue
 
         elif game_state == "PREGAME":
             logger.info("In pregame, waiting for match to start...")
             pregame_data = pre.get_pregame_info()
             if pregame_data is None:
-                await asyncio.sleep(5)
+                await asyncio.sleep(TIMEOUT)
                 continue
 
             last_game_state = "PREGAME"
@@ -284,7 +286,7 @@ async def run_agent():
             }
             rpc.set_presence(**presence_data)
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(TIMEOUT)
             continue
 
         elif game_state == "INGAME":
@@ -296,7 +298,7 @@ async def run_agent():
 
                 if match_data is None:
                     logger.info("No match data found, waiting for next update...")
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(TIMEOUT)
                     continue
 
                 current_match_uuid = match_data.match_uuid
@@ -321,7 +323,7 @@ async def run_agent():
                         logger.info(f"Active match created successfully for {match_uuid}")
                     else:
                         logger.error(f"Failed to create active match for {match_uuid}")
-                        await asyncio.sleep(5)
+                        await asyncio.sleep(TIMEOUT)
                         continue
 
                     # Step 2: Connect to WebSocket
@@ -347,7 +349,7 @@ async def run_agent():
 
                     except Exception as e:
                         logger.error(f"Failed to connect to WebSocket: {str(e)}")
-                        await asyncio.sleep(5)
+                        await asyncio.sleep(TIMEOUT)
                         continue
 
                 # Handle Discord RPC updates
@@ -390,7 +392,7 @@ async def run_agent():
                 ws = None
                 initial_data_sent = False
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(TIMEOUT)
         else:
             # Handle other game states - clean up if needed
             if match_uuid is not None:
@@ -399,7 +401,7 @@ async def run_agent():
                     await ws.close()
                 reset_match_state()
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(TIMEOUT)
 
 
 if __name__ == "__main__":
