@@ -15,6 +15,11 @@ export interface CurrentMatchPlayer {
     agent_icon: string;
     rank: string;
     rr: number | null;
+    hs: number;
+    adr: number;
+    kd: number;
+    peak_rank: string;
+    peak_rank_icon: string | null;
     leaderboard_rank: number | null;
 }
 

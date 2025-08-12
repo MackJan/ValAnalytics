@@ -30,6 +30,10 @@ class ActiveMatchPlayerCreate(BaseModel):
     agent_icon: str
     rank: str
     rr: Optional[int] = None
+    kd: Optional[float] = None
+    hs: Optional[int] = None
+    adr: Optional[int] = None
+    peak_rank: Optional[str] = None
     leaderboard_rank: Optional[int] = None
 
 class ActiveMatchRead(BaseModel):
@@ -65,6 +69,10 @@ class ActiveMatchPlayerRead(BaseModel):
     agent_icon: str
     rank: str
     rr: Optional[int] = None
+    kd: Optional[float] = None
+    hs: Optional[int] = None
+    adr: Optional[int] = None
+    peak_rank: Optional[str] = None
     leaderboard_rank: Optional[int] = None
 
 class ActiveMatchUpdate(BaseModel):

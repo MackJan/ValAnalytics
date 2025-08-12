@@ -243,7 +243,12 @@ def create_app() -> FastAPI:
                                 "agent_icon": player.agent_icon,
                                 "rank": player.rank,
                                 "rr": player.rr,
-                                "leaderboard_rank": player.leaderboard_rank
+                                "leaderboard_rank": player.leaderboard_rank,
+                                # Add the missing stats fields
+                                "kd": player.kd,
+                                "hs": player.hs,
+                                "adr": player.adr,
+                                "peak_rank": player.peak_rank
                             }
                             match_dict["players"].append(player_dict)
 

@@ -90,12 +90,28 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                             <div
                                                 className="font-semibold text-gray-800 text-lg">{player.game_name || "NameTag"}</div>
                                             <div className="text-sm text-gray-600">{player.character || "Agent"}</div>
+                                            {/* Add stats display */}
+                                            <div className="text-xs text-gray-500 mt-1 flex space-x-3">
+                                                {player.kd !== null && player.kd !== undefined && (
+                                                    <span>KD: {player.kd.toFixed(2)}</span>
+                                                )}
+                                                {player.hs !== null && player.hs !== undefined && (
+                                                    <span>HS: {player.hs}%</span>
+                                                )}
+                                                {player.adr !== null && player.adr !== undefined && (
+                                                    <span>ADR: {player.adr}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <div
                                             className="text-sm font-semibold text-gray-800">{player.rank || "Unranked"}</div>
                                         <div className="text-xs text-gray-500">{player.account_level || "Hidden"}</div>
+                                        {/* Add peak rank display */}
+                                        {player.peak_rank && (
+                                            <div className="text-xs text-blue-600 font-medium">Peak: {player.peak_rank}</div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -135,6 +151,18 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                             <div
                                                 className="font-semibold text-gray-800 text-lg">{player.game_name || "NameTag"}</div>
                                             <div className="text-sm text-gray-600">{player.character || "Agent"}</div>
+                                            {/* Add stats display */}
+                                            <div className="text-xs text-gray-500 mt-1 flex space-x-3">
+                                                {player.kd !== null && player.kd !== undefined && (
+                                                    <span>KD: {player.kd.toFixed(2)}</span>
+                                                )}
+                                                {player.hs !== null && player.hs !== undefined && (
+                                                    <span>HS: {player.hs}%</span>
+                                                )}
+                                                {player.adr !== null && player.adr !== undefined && (
+                                                    <span>ADR: {player.adr}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="text-right">
@@ -142,6 +170,10 @@ const IngameDashboard: React.FC<{ matchData: MatchData }> = ({matchData}) => {
                                             className="text-sm font-semibold text-gray-800">{player.rank || "Immortal 3"}</div>
 
                                         <div className="text-xs text-gray-500">{player.account_level || "Hidden"}</div>
+                                        {/* Add peak rank display */}
+                                        {player.peak_rank && (
+                                            <div className="text-xs text-red-600 font-medium">Peak: {player.peak_rank}</div>
+                                        )}
                                     </div>
                                 </div>
                             ))}

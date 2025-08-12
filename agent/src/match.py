@@ -21,6 +21,8 @@ from models import (
     SingleMatch,
 )
 import urllib3
+from player_stats import PlayerStats
+from constants import before_ascendant_seasons
 
 urllib3.disable_warnings()
 
@@ -31,6 +33,7 @@ class Match:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.presence = Presence(self.requests)
+        self.stats = PlayerStats(self.requests)
 
         user_rank, _ = self.get_rank_by_uuid(self.user.user.puuid)
         self.user.user.rank = user_rank["rank"]
@@ -90,7 +93,8 @@ class Match:
                     player_title_id=p["PlayerIdentity"].get("PlayerTitleID"),
                     preferred_level_border_id=p["SeasonalBadgeInfo"].get("PreferredLevelBorderID"),
                     agent_icon=get_agent_icon(p["CharacterID"]),
-                    rank="placeholder"
+                    rank="placeholder",
+                    peak_rank="placeholder"
                 )
 
         if init:
@@ -101,6 +105,7 @@ class Match:
 
             for p in data["Players"]:
                 rank, rank_num = self.get_rank_by_uuid(p["Subject"])
+                player_stats = self.stats.get_stats(p["Subject"])
 
                 players.append(
                     CurrentMatchPlayer(
@@ -115,6 +120,10 @@ class Match:
                         agent_icon=get_agent_icon(p["CharacterID"]),
                         rank=rank["rank"],
                         rr=rank["rr"],
+                        peak_rank=rank["peak_rank"],
+                        hs_percentage=player_stats.hs,
+                        adr=player_stats.adr,
+                        kd=player_stats.kd
                     )
                 )
 
@@ -186,7 +195,7 @@ class Match:
 
         raise Exception("Could not find current match ID. Make sure you are in a match.")
 
-    def get_current_gamemode(self):
+    def get_current_gamemode(self) -> str:
         presence_data_raw = self.presence.get_private_presence(self.presence.get_presence())
         gamemode = get_gamemodes_from_codename(presence_data_raw["queueId"])
         return gamemode
@@ -194,19 +203,42 @@ class Match:
 
 
     def get_rank_by_uuid(self, uuid: str) -> (dict, int):
-
         try:
             data = self.requests.fetch("pd", f"/mmr/v1/players/{uuid}", "get")
             if not data:
-                return {"rank": "Unranked", "rr": None}
+                return {"rank": "Unranked", "rr": None, "peak_rank": "Unranked"}, 0
+
             latest_rank = data["LatestCompetitiveUpdate"]["TierAfterUpdate"]
             latest_rr = data["LatestCompetitiveUpdate"]["RankedRatingAfterUpdate"]
+
+            # Initialize peak rank with current rank
+            peak_rank_num = latest_rank
+
+            # Get seasonal info for peak rank calculation
+            seasons = data["QueueSkills"]["competitive"].get("SeasonalInfoBySeasonID")
+            if seasons is not None:
+                for season_id in seasons:
+                    season_data = seasons[season_id]
+                    wins_by_tier = season_data.get("WinsByTier")
+
+                    if wins_by_tier is not None:
+                        for tier_str in wins_by_tier:
+                            tier_num = int(tier_str)
+                            if season_id in before_ascendant_seasons:
+                                tier_num += 3
+                            # Check if this tier is higher than current peak
+                            if tier_num > peak_rank_num:
+                                peak_rank_num = tier_num
+
+            peak_rank = get_rank_by_id(peak_rank_num)
 
             ret = {
                 "rank": get_rank_by_id(latest_rank).get("tierName", "Unranked"),
                 "rr": latest_rr,
+                "peak_rank": peak_rank.get("tierName", "Unranked") if peak_rank else "Unranked"
             }
+
             return ret, latest_rank
 
         except Exception:
-            return {"rank": "Unranked", "rr": None}, 0
+            return {"rank": "Unranked", "rr": None, "peak_rank": "Unranked"}, 0

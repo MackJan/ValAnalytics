@@ -2,10 +2,9 @@ import os
 import base64
 import requests
 from os import path
-import json
+from typing import Dict
+import logging
 import time
-from typing import Optional, Dict, Any, Tuple, List
-
 
 class Requests:
     def __init__(self):
@@ -18,8 +17,9 @@ class Requests:
         self.pd_url = f"https://pd.{self.region[0]}.a.pvp.net"
         self.glz_url = f"https://glz-{self.region[1][0]}.{self.region[1][1]}.a.pvp.net"
         self.region = self.region[0]
+        self.logger = logging.getLogger(__name__)
 
-    def fetch(self, url_type: str, endpoint: str, method: str, jsonData=None, retries: int = 3):
+    def fetch(self, url_type: str, endpoint: str, method: str, jsonData=None, retries: int = 3,timeout_sec:float = 5):
         for _ in range(retries):
             if not self.headers:
                 self.headers = self.get_headers()
@@ -32,6 +32,7 @@ class Requests:
                         headers=self.headers,
                         verify=True,
                         json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                        timeout=timeout_sec
                     )
                 elif url_type == "pd":
                     url = self.pd_url + endpoint
@@ -41,6 +42,7 @@ class Requests:
                         headers=self.headers,
                         verify=True,
                         json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                        timeout=timeout_sec
                     )
                 elif url_type == "local":
                     local_headers = {
@@ -57,22 +59,29 @@ class Requests:
                         headers=self.headers,
                         verify=True,
                         json=jsonData if method.lower() == "put" and jsonData is not None else None,
+                        timeout=timeout_sec
                     )
                 else:
                     return None
 
                 if response.ok:
                     return response.json()
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get("Retry-After", 1))
+                    self.logger.warning(f"Rate limit exceeded. Retrying after {retry_after} seconds...")
+                    time.sleep(retry_after)
+                    continue
 
                 if response.status_code in {400, 401, 403}:
                     self.headers = {}
+                    self.logger.error("Authorization failed or bad request. Retrying with new headers...")
 
             except requests.RequestException:
+                self.logger.exception(f"Error fetching {url_type} data from {endpoint}. Retrying...")
                 pass
 
-            time.sleep(5)
 
-        print(f"Error fetching {url_type} data: {response.status_code} - {response.text}")
+        #print(f"Error fetching {url_type} data: {response.status_code} - {response.text}")
         return None
 
     def get_version(self):

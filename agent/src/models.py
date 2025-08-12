@@ -10,6 +10,13 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return dataclasses.asdict(o)
         return super().default(o)
 
+
+@dataclass
+class CurrentPlayerStats:
+    kd: float
+    hs: int
+    adr: int
+
 @dataclass
 class Player:
     character: str
@@ -39,6 +46,10 @@ class CurrentMatchPlayer:
     preferred_level_border_id: Optional[str]
     agent_icon: str
     rank: str
+    peak_rank: str
+    kd: Optional[float] = None
+    hs_percentage: Optional[int] = None
+    adr: Optional[int] = None
     rr: Optional[int] = None
     leaderboard_rank: Optional[int] = None
 
