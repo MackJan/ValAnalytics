@@ -49,7 +49,11 @@ async def create_active_match(active_match: ActiveMatchCreate, api_key: str = De
                     agent_icon=player_data.agent_icon,
                     rank=player_data.rank,
                     rr=player_data.rr,
-                    leaderboard_rank=player_data.leaderboard_rank
+                    leaderboard_rank=player_data.leaderboard_rank,
+                    kd=player_data.kd,
+                    hs=player_data.hs,
+                    adr=player_data.adr,
+                    peak_rank=player_data.peak_rank,
                 )
                 session.add(player)
 

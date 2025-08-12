@@ -19,10 +19,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 from pregame import Pregame
 from name_service import get_rpc_gamemodes
+from player_stats import PlayerStats
 
 load_dotenv()
 
-TIMEOUT=2
+TIMEOUT=5
 
 req = Requests()
 
@@ -46,9 +47,7 @@ m = Match(req, user)
 p = Presence(req)
 rpc = DiscordRPC()
 pre = Pregame(req, user)
-
-
-
+stats = PlayerStats(req)
 
 def get_headers():
     """Get headers with API key authentication"""
@@ -63,8 +62,6 @@ async def create_active_match_via_api(match_data: CurrentMatch):
     Create an active match with players via API call
     """
     # Prepare the payload for the API
-
-
     payload = {
         "match_uuid": match_data.match_uuid,
         "game_map": match_data.game_map,
@@ -95,7 +92,11 @@ async def create_active_match_via_api(match_data: CurrentMatch):
                 "agent_icon": player.agent_icon,
                 "rank": player.rank,
                 "rr": player.rr,
-                "leaderboard_rank": player.leaderboard_rank
+                "leaderboard_rank": player.leaderboard_rank,
+                "kd": player.kd,
+                "hs": player.hs_percentage,
+                "adr": player.adr,
+                "peak_rank": player.peak_rank
             }
             payload["players"].append(player_data)
 
@@ -302,7 +303,7 @@ async def run_agent():
                     continue
 
                 current_match_uuid = match_data.match_uuid
-
+                print(match_data)
                 # Handle new match or first time in this match
                 if current_match_uuid != match_uuid:
                     # Clean up previous match if exists

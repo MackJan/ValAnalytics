@@ -37,5 +37,9 @@ class ActiveMatchPlayer(SQLModel, table=True):
     rank: str
     rr: Optional[int] = Field(default=None, nullable=True)
     leaderboard_rank: Optional[int] = Field(default=None, nullable=True)
+    kd: Optional[float] = Field(default=None, nullable=True)
+    hs: Optional[int] = Field(default=None, nullable=True)
+    adr: Optional[int] = Field(default=None, nullable=True)
+    peak_rank: Optional[str] = Field(default=None, nullable=True)
 
     match: Optional["ActiveMatch"] = Relationship(back_populates="players")
