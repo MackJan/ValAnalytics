@@ -32,7 +32,9 @@ Run the agent locally (requires Python 3.9 and `pip install -r agent/requirement
 
 ## Screenshots
 
-![Discord RPC](https://media.discordapp.net/attachments/768367820119343107/1393234035844710471/image.png?ex=68726dcf&is=68711c4f&hm=45258ea274555b727f2ce4b9f3e9a655b0974ae7a6c68cb08233dbe9b8457964&=&format=webp&quality=lossless)
+![Discord RPC Lobby](https://github.com/MackJan/ValAnalytics/blob/main/assets/discord_rpc_lobby.png)
+
+![Discord RPC Ingame](https://github.com/MackJan/ValAnalytics/blob/main/assets/discord_rpc_ingame.png)
 
 ![Active Matches](https://github.com/MackJan/ValAnalytics/blob/main/assets/active_matches.png)
 
