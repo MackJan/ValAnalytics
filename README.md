@@ -1,3 +1,7 @@
+Development is paused until early 2026.
+
+A demo is hosted under [valstats.live](https://valstats.live/)
+
 # Valorant Performance Tracker
 
 Valorant Performance Tracker is a application that collects live match information from the game client and displays it in real time. It currently consists of:
