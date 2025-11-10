@@ -9,12 +9,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://backend:8800',
         changeOrigin: true,
         secure: false,
       },
       '^/ws/.*': {
-        target: 'ws://localhost:8000',
+        target: 'ws://localhost:8800',
         ws: true,
       },
     },
